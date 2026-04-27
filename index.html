@@ -243,7 +243,7 @@
         container.innerHTML = filteredMatches.length === 0 ? "<div class='col-12'><div class='alert alert-secondary'>Chưa có trận đấu nào đang mở.</div></div>" : ""; 
         filteredMatches.forEach((match) => {
             const isExpired = now > (match.matchTime - (120 * 60 * 1000)); const hasBet = myBetMatchIds.includes(match.id);
-            const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}) : "Chưa xác định";
+            const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}) : "Chưa xác định";
             
             let actionArea = "";
             if (currentTourPoints === undefined) actionArea = `<div class="alert alert-warning py-2 mb-0">Nạp điểm để tham gia giải.</div>`;
@@ -340,7 +340,7 @@
                         // LỌC RÁC: Nếu tin nhắn bị undefined hoặc rỗng thì KHÔNG HIỂN THỊ
                         if (!chat.message || String(chat.message).includes("undefined") || String(chat.userName).includes("undefined")) return;
 
-                        const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
+                        const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
                         const safeUserName = chat.userName || "Khách";
                         
                         if (chat.userId === "SYSTEM_BOT") {
