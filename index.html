@@ -160,8 +160,9 @@
                 <span class="emoji-btn" onclick="addEmoji('🍺')">🍻</span>
                 <span class="emoji-btn" onclick="addEmoji('🤫')">🤫</span>
             </div>
-            <div class="p-2 bg-white d-flex gap-2 border-top">
-                <input type="text" id="chatInput" class="form-control form-control-sm" placeholder="Gáy lên..." onkeypress="handleChatKeyPress(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
+            <div class="p-2 bg-white d-flex gap-2 border-top position-relative">
+                <div id="mentionSuggestions" class="bg-white border rounded shadow-sm position-absolute w-100" style="display:none; bottom: 100%; left: 0; max-height: 150px; overflow-y: auto; z-index: 1050;"></div>
+                <input type="text" id="chatInput" class="form-control form-control-sm" placeholder="Gáy lên..." onkeypress="handleChatKeyPress(event)" oninput="handleChatInput(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
                 <button onclick="sendChatMessage()" class="btn btn-primary btn-sm fw-bold">Gửi</button>
             </div>
         </div>
@@ -296,12 +297,75 @@
         else { body.style.display = 'none'; icon.innerText = '▲'; }
     };
     window.addEmoji = (emoji) => { const input = document.getElementById('chatInput'); input.value += emoji; input.focus(); };
+
+    // --- LOGIC NHẤN GIỮ / CLICK CHUỘT PHẢI / NÚT REACT ---
+    let pressTimer;
+    window.startPress = (e, msgId) => { pressTimer = setTimeout(() => { window.showReactMenu(e, msgId); }, 400); };
+    window.endPress = () => { clearTimeout(pressTimer); };
+    window.showReactMenu = (e, msgId) => {
+        if(e) e.preventDefault();
+        document.querySelectorAll('.react-menu-popup').forEach(el => el.style.display = 'none');
+        const menu = document.getElementById(`reactMenu_${msgId}`);
+        if (menu) menu.style.display = 'flex';
+    };
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.react-menu-popup') && !e.target.closest('.msg-bubble') && !e.target.closest('.msg-actions')) {
+            document.querySelectorAll('.react-menu-popup').forEach(el => el.style.display = 'none');
+        }
+    });
+
+    // --- LOGIC MENTION & REPLY ---
+    window.handleChatInput = (e) => {
+        const val = e.target.value; const cursorPosition = e.target.selectionStart;
+        const textBeforeCursor = val.substring(0, cursorPosition);
+        const match = textBeforeCursor.match(/@([^\s@]*)$/);
+        const container = document.getElementById('mentionSuggestions');
+        if (match) {
+            const searchStr = match[1].toLowerCase();
+            let suggestions = [{id: 'all', name: 'all'}];
+            allUsersData.forEach(u => { const name = u.displayName || u.email.split('@')[0]; suggestions.push({id: u.id, name: name}); });
+            let uniqueNames = [...new Set(suggestions.map(s => s.name))];
+            const filtered = uniqueNames.filter(name => name.toLowerCase().includes(searchStr));
+            if (filtered.length > 0) {
+                container.innerHTML = filtered.map(name => `<div class="p-2 border-bottom suggestion-item text-dark small fw-bold" style="cursor:pointer;" onclick="insertMention('${name}')">@${name}</div>`).join('');
+                container.style.display = 'block';
+            } else container.style.display = 'none';
+        } else container.style.display = 'none';
+    };
+    window.insertMention = (name) => {
+        const input = document.getElementById('chatInput');
+        const val = input.value; const cursorPosition = input.selectionStart;
+        const textBeforeCursor = val.substring(0, cursorPosition); const textAfterCursor = val.substring(cursorPosition);
+        input.value = textBeforeCursor.replace(/@([^\s@]*)$/, `@${name} `) + textAfterCursor;
+        input.focus(); document.getElementById('mentionSuggestions').style.display = 'none';
+    };
+    window.replyToMessage = (name, text) => {
+        const input = document.getElementById('chatInput');
+        const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
+        const shortText = cleanText.length > 20 ? cleanText.substring(0, 20) + '...' : cleanText;
+        input.value = `@${name} (trả lời: "${shortText}") - ` + input.value; input.focus();
+    };
+    window.reactToMessage = async (msgId, emoji) => {
+        if (!currentUserDoc) return;
+        try {
+            const msgRef = doc(db, "chats", msgId); const msgSnap = await getDoc(msgRef);
+            if (msgSnap.exists()) {
+                let data = msgSnap.data(); let reactions = data.reactions || {};
+                if (!reactions[emoji]) reactions[emoji] = [];
+                const uid = currentUserDoc.uid;
+                if (reactions[emoji].includes(uid)) reactions[emoji] = reactions[emoji].filter(id => id !== uid);
+                else reactions[emoji].push(uid);
+                await updateDoc(msgRef, { reactions });
+            }
+        } catch(e) { console.error("Lỗi react:", e); }
+    };
     window.handleChatKeyPress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
     function scrollToBottom() { const container = document.getElementById('chatMessages'); container.scrollTop = container.scrollHeight; }
     
     window.sendChatMessage = async () => {
         if (!currentUserDoc) return alert("Đang đồng bộ dữ liệu, vui lòng chờ 1 giây...");
         const input = document.getElementById('chatInput'); const msg = input.value.trim(); if (!msg) return; input.value = '';
+        document.getElementById('mentionSuggestions').style.display = 'none';
         const senderName = currentUserDoc.displayName || (currentUserDoc.email ? currentUserDoc.email.split('@')[0] : "Khách");
         try {
             await addDoc(collection(db, "chats"), {
@@ -389,6 +453,9 @@
                             });
                         }
 
+                        const escapedText = (chat.message || "").replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/[\r\n]+/g, ' ');
+                        const safeUserNameEscaped = safeUserName.replace(/'/g, "\\'");
+
                         if (chat.userId === "SYSTEM_BOT") {
                             container.innerHTML += `
                                 <div class="align-self-center my-2" style="max-width: 95%; width: 100%;">
@@ -399,18 +466,28 @@
                         }
                         else if (chat.userId === user.uid) {
                             const reactionMenu = `<div class="d-flex mt-1 align-items-center justify-content-end position-relative w-100">
-                                <span class="badge bg-light text-muted border p-1 shadow-sm me-1" style="cursor:pointer; font-size:0.7rem;" onclick="toggleReactionMenu('${docSnap.id}')">+😀</span>
                                 ${reactionsHtml}
-                                <div id="reactMenu_${docSnap.id}" class="bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; right: 0; z-index:10; white-space: nowrap;">
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); toggleReactionMenu('${docSnap.id}')">😂</span>
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); toggleReactionMenu('${docSnap.id}')">❤️</span>
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); toggleReactionMenu('${docSnap.id}')">😡</span>
+                                <div id="reactMenu_${docSnap.id}" class="react-menu-popup bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; right: 0; z-index:10; white-space: nowrap; gap:5px;">
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">😂</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">❤️</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">😡</span>
                                 </div>
                             </div>`;
                             container.innerHTML += `
-                                <div class="d-flex mb-1 justify-content-end align-items-end gap-2">
-                                    <div style="max-width: 75%; display: flex; flex-direction: column; align-items: flex-end;">
-                                        <div class="bg-primary text-white p-2 shadow-sm" style="border-radius: 15px 15px 0 15px; font-size: 0.9rem;">${formattedMsg}</div>
+                                <div class="d-flex mb-1 justify-content-end align-items-end gap-2 msg-container">
+                                    <div style="max-width: 85%; display: flex; flex-direction: column; align-items: flex-end;">
+                                        <div class="d-flex align-items-center gap-1 w-100 justify-content-end">
+                                            <div class="msg-actions">
+                                                <span title="Trả lời" onclick="replyToMessage('${safeUserNameEscaped}', '${escapedText}')">↩️</span>
+                                                <span title="Thả cảm xúc" onclick="showReactMenu(event, '${docSnap.id}')">😀</span>
+                                            </div>
+                                            <div class="bg-primary text-white p-2 shadow-sm msg-bubble" style="border-radius: 15px 15px 0 15px; font-size: 0.9rem; cursor: pointer;"
+                                                onmousedown="startPress(event, '${docSnap.id}')" onmouseup="endPress()" onmouseleave="endPress()" 
+                                                ontouchstart="startPress(event, '${docSnap.id}')" ontouchend="endPress()" ontouchcancel="endPress()" 
+                                                oncontextmenu="showReactMenu(event, '${docSnap.id}')">
+                                                ${formattedMsg}
+                                            </div>
+                                        </div>
                                         ${reactionMenu}
                                         <div class="text-end text-muted" style="font-size: 0.65rem;">${timeStr}</div>
                                     </div>
@@ -418,20 +495,30 @@
                         } else {
                             const reactionMenu = `<div class="d-flex mt-1 align-items-center position-relative w-100">
                                 ${reactionsHtml}
-                                <span class="badge bg-light text-muted border p-1 shadow-sm" style="cursor:pointer; font-size:0.7rem;" onclick="toggleReactionMenu('${docSnap.id}')">+😀</span>
-                                <div id="reactMenu_${docSnap.id}" class="bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; left: 0; z-index:10; white-space: nowrap;">
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); toggleReactionMenu('${docSnap.id}')">😂</span>
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); toggleReactionMenu('${docSnap.id}')">❤️</span>
-                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); toggleReactionMenu('${docSnap.id}')">😡</span>
+                                <div id="reactMenu_${docSnap.id}" class="react-menu-popup bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; left: 0; z-index:10; white-space: nowrap; gap:5px;">
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">😂</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">❤️</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); document.getElementById('reactMenu_${docSnap.id}').style.display='none'">😡</span>
                                 </div>
                             </div>`;
                             const avaHtml = getAvatar(safeUserName);
                             container.innerHTML += `
-                                <div class="d-flex mb-1 align-items-end gap-2">
+                                <div class="d-flex mb-1 align-items-end gap-2 msg-container">
                                     <div style="margin-bottom: 18px;">${avaHtml}</div>
-                                    <div style="max-width: 75%;">
+                                    <div style="max-width: 85%;">
                                         <div class="small fw-bold text-secondary mb-1" style="font-size: 0.7rem; margin-left: 2px; cursor:pointer;" onclick="tagUser('${safeUserName}')" title="Nhấn để Tag">${safeUserName}</div>
-                                        <div class="bg-white border p-2 shadow-sm" style="border-radius: 15px 15px 15px 0; font-size: 0.9rem;">${formattedMsg}</div>
+                                        <div class="d-flex align-items-center gap-1 w-100">
+                                            <div class="bg-white border p-2 shadow-sm msg-bubble" style="border-radius: 15px 15px 15px 0; font-size: 0.9rem; cursor: pointer;"
+                                                onmousedown="startPress(event, '${docSnap.id}')" onmouseup="endPress()" onmouseleave="endPress()" 
+                                                ontouchstart="startPress(event, '${docSnap.id}')" ontouchend="endPress()" ontouchcancel="endPress()" 
+                                                oncontextmenu="showReactMenu(event, '${docSnap.id}')">
+                                                ${formattedMsg}
+                                            </div>
+                                            <div class="msg-actions">
+                                                <span title="Thả cảm xúc" onclick="showReactMenu(event, '${docSnap.id}')">😀</span>
+                                                <span title="Trả lời" onclick="replyToMessage('${safeUserNameEscaped}', '${escapedText}')">↩️</span>
+                                            </div>
+                                        </div>
                                         ${reactionMenu}
                                         <div class="text-start text-muted mt-1" style="font-size: 0.65rem; margin-left: 2px;">${timeStr}</div>
                                     </div>
