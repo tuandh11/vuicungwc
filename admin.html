@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -346,4 +347,354 @@
         };
     </script>
 </body>
+=======
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Vui cùng World Cup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .pulse-anim { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .admin-card { transition: box-shadow 0.3s; }
+        .admin-card:hover { box-shadow: 0 5px 15px rgba(0,0,0,0.08) !important; }
+        .hover-bg-light:hover { background-color: #f8f9fa; }
+    </style>
+</head>
+<body class="p-4 bg-light" id="adminBody" style="display: none;">
+    <div class="container" style="max-width: 900px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-primary mb-0">👑 Bảng Điều Khiển Admin</h2>
+            <a href="index.html" class="btn btn-outline-secondary btn-sm">Quay về Trang cược</a>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-6 mb-2"><div class="card p-3 bg-primary text-white text-center rounded admin-card border-0"><h6>👥 Tổng người chơi</h6><h3 id="statTotalUsers" class="mb-0 fw-bold">0</h3></div></div>
+            <div class="col-md-6 mb-2"><div class="card p-3 bg-success text-white text-center rounded admin-card border-0"><h6>💰 Điểm đang lưu thông</h6><h3 id="statTotalPoints" class="mb-0 fw-bold">0</h3></div></div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-5 mb-3 mb-md-0">
+                <div class="card p-3 shadow-sm border-0 border-info h-100 admin-card">
+                    <h5 class="text-info fw-bold">👤 Cấp nick mới</h5>
+                    <p class="small text-muted mb-2">Tạo nick cho người chơi (Mật khẩu mặc định: 123456)</p>
+                    <input type="email" id="newUserEmail" class="form-control form-control-sm mb-2" placeholder="Nhập Email người chơi">
+                    <button onclick="createNewUser()" class="btn btn-info btn-sm text-white w-100 fw-bold mt-auto">Tạo Tài Khoản Ngay</button>
+                </div>
+            </div>
+            
+            <div class="col-md-7">
+                <div class="card p-3 shadow-sm border-0 border-warning h-100 admin-card">
+                    <h5 class="text-warning fw-bold">👥 Danh sách Tài khoản</h5>
+                    <input type="text" id="searchUserInput" class="form-control form-control-sm mb-2" placeholder="Tìm kiếm tên hoặc email..." onkeyup="filterAdminUsers()">
+                    <div id="adminUserList" style="max-height: 250px; overflow-y: auto;"><p class="small text-muted">Đang tải dữ liệu...</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4 shadow-sm border-0 border-success admin-card">
+            <h5 class="text-success fw-bold mb-3">💸 Duyệt Yêu cầu Nạp Điểm</h5>
+            <div id="adminTopUpList"><p class="text-muted small mb-0">Không có yêu cầu nạp điểm nào đang chờ.</p></div>
+        </div>
+
+        <div class="card p-4 mb-4 shadow-sm border-0 border-primary admin-card" style="background-color: #f0f8ff;">
+            <h5 class="text-primary fw-bold">🏆 1. Quản lý Giải Đấu</h5>
+            <div class="row g-2 mt-2">
+                <div class="col-md-9"><input type="text" id="tournamentName" class="form-control" placeholder="Tên giải đấu (VD: World Cup 2026)"></div>
+                <div class="col-md-3"><button onclick="createTournament()" class="btn btn-primary w-100 fw-bold">Tạo Giải</button></div>
+            </div>
+            <div class="mt-3"><h6 class="small text-muted">Các giải đang có:</h6><div id="tournamentList" class="d-flex flex-wrap gap-2"></div></div>
+        </div>
+
+        <div class="card p-4 mb-4 shadow-sm border-0 admin-card">
+            <h5 class="text-primary fw-bold">2. Tạo trận đấu mới</h5>
+            <div class="row g-2 mt-2">
+                <div class="col-md-12"><select id="matchTournament" class="form-select border-primary"><option value="">-- Bắt buộc: Chọn Giải Đấu --</option></select></div>
+                <div class="col-md-3"><input type="text" id="teamA" class="form-control" placeholder="Đội A"></div>
+                <div class="col-md-3"><input type="text" id="teamB" class="form-control" placeholder="Đội B"></div>
+                <div class="col-md-3"><input type="text" id="handicap" class="form-control" placeholder="Kèo chấp"></div>
+                <div class="col-md-3"><input type="datetime-local" id="matchTime" class="form-control"></div>
+                <div class="col-12 mt-2"><button onclick="createMatch()" class="btn btn-primary w-100 fw-bold">Đưa lên hệ thống</button></div>
+            </div>
+        </div>
+
+        <div class="card p-4 mb-4 shadow-sm border-0 admin-card">
+            <h5 class="text-danger fw-bold">3. Quản lý Trận & Danh sách cược</h5>
+            <div id="adminMatchList" class="row mt-2"></div>
+        </div>
+
+        <div id="playerListSection" class="card p-4 mb-4 shadow-sm border-0 border-info admin-card" style="display: none; background-color: #f8fcfd;">
+            <div class="d-flex justify-content-between align-items-center mb-2"><h5 class="text-info fw-bold mb-0">Chi tiết danh sách cược</h5><button onclick="closePlayerList()" class="btn btn-sm btn-close"></button></div>
+            <p id="checkMatchName" class="fw-bold text-dark border-bottom pb-2 mb-3"></p>
+            <div class="row">
+                <div class="col-md-6 border-end"><h6 class="text-success">✅ Đã cược (<span id="countBet">0</span>)</h6><ul id="listHasBet" class="list-unstyled small"></ul></div>
+                <div class="col-md-6"><h6 class="text-danger">❌ Chưa cược (<span id="countNotBet">0</span>)</h6><ul id="listNotBet" class="list-unstyled small"></ul><button id="btnPenalize" class="btn btn-warning btn-sm mt-2 w-100 fw-bold" style="display:none;">Phạt (+1 Bỏ lỡ)</button></div>
+            </div>
+        </div>
+
+        <div class="card p-4 shadow-sm border-0 bg-white admin-card">
+            <h5 class="text-secondary fw-bold">4. Lịch sử các trận đã qua</h5><div id="historyMatchList" class="mt-3"></div>
+        </div>
+    </div>
+
+    <div id="editMatchOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1040;" onclick="closeEditMatch()"></div>
+    <div id="editMatchModal" class="card p-4 shadow border-warning" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1050; width: 90%; max-width: 500px; background-color: white;">
+        <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="text-warning fw-bold mb-0">✏️ Sửa thông tin Trận đấu</h5><button onclick="closeEditMatch()" class="btn-close"></button></div>
+        <div class="alert alert-danger p-2 small mb-3"><b>Lưu ý:</b> Sửa thông tin sẽ <b>HỦY VÀ HOÀN TRẢ</b> mọi vé cược hiện tại của trận này để người chơi cược lại.</div>
+        <input type="hidden" id="editMatchId"><input type="hidden" id="editTourId">
+        <input type="text" id="editTeamA" class="form-control mb-2" placeholder="Đội A"><input type="text" id="editTeamB" class="form-control mb-2" placeholder="Đội B">
+        <input type="text" id="editHandicap" class="form-control mb-2" placeholder="Kèo"><input type="datetime-local" id="editMatchTime" class="form-control mb-3">
+        <button onclick="saveEditMatch()" class="btn btn-warning w-100 fw-bold text-dark">Lưu Sửa Đổi & Hoàn Tiền Vé Cũ</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDoc, setDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyDPBXK4t4ex8oBpe3x9a8m80jf5CZLrVH0", authDomain: "worldcup26-896ac.firebaseapp.com", projectId: "worldcup26-896ac", storageBucket: "worldcup26-896ac.firebasestorage.app", messagingSenderId: "1070038920983", appId: "1:1070038920983:web:f107f8e2fa2a5a79725152" };
+        const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
+        const secondaryApp = initializeApp(firebaseConfig, "Secondary"); const secondaryAuth = getAuth(secondaryApp);
+
+        const sendBotChat = async (msg) => { try { await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Trọng Tài Báo Kèo", message: msg, timestamp: new Date() }); } catch(e) {} };
+        const formatNames = (names) => { if(!names || names.length === 0) return ""; return names.length <= 5 ? names.join(', ') : names.slice(0, 5).join(', ') + ` và ${names.length - 5} ae khác`; };
+
+        onAuthStateChanged(auth, async (user) => { if (!user) { window.location.href = 'index.html'; return; } const userSnap = await getDoc(doc(db, "users", user.uid)); if(userSnap.exists() && userSnap.data().role === "admin") document.getElementById('adminBody').style.display = 'block'; else { alert("Không có quyền!"); window.location.href = 'index.html'; } });
+        window.createNewUser = async () => { const email = document.getElementById('newUserEmail').value.trim(); if(!email) return alert("Vui lòng nhập Email!"); try { const res = await createUserWithEmailAndPassword(secondaryAuth, email, "123456"); await setDoc(doc(db, "users", res.user.uid), { email: email, tournamentPoints: {}, role: "user" }); await signOut(secondaryAuth); alert("Thành công! Mật khẩu mặc định: 123456"); document.getElementById('newUserEmail').value = ''; } catch(e) { alert("Lỗi: " + e.message); } };
+        
+        onSnapshot(collection(db, "users"), (snapshot) => {
+            let totalU = 0; let totalP = 0;
+            const list = document.getElementById('adminUserList'); if (snapshot.empty) { list.innerHTML = "<p class='small text-muted'>Chưa có người chơi nào.</p>"; document.getElementById('statTotalUsers').innerText = "0"; document.getElementById('statTotalPoints').innerText = "0"; return; }
+            let html = `<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;" id="usersTable"><thead class="table-light"><tr><th>Người chơi</th><th>Thao tác</th></tr></thead><tbody>`;
+            snapshot.forEach(docSnap => { 
+                totalU++; const u = docSnap.data(); 
+                if (u.tournamentPoints) { Object.values(u.tournamentPoints).forEach(p => totalP += p); }
+                const nameDisplay = u.displayName || u.email.split('@')[0]; const isMe = u.email === auth.currentUser.email; let penaltyInfo = u.missedMatches > 0 ? `<br><small class="text-danger fw-bold">Thẻ phạt: ${u.missedMatches} | Liên tiếp: ${u.consecutiveMisses || 0}</small>` : ''; html += `<tr><td><strong class="${isMe ? 'text-danger' : 'text-primary'}">${nameDisplay}</strong>${u.role === 'admin' ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Admin</span>' : ''}<br><small class="text-muted">${u.email}</small>${penaltyInfo}</td><td><button onclick="changeUserName('${docSnap.id}', '${nameDisplay}')" class="btn btn-warning btn-sm fw-bold" style="font-size: 0.75rem;">✏️ Đổi tên</button></td></tr>`; 
+            });
+            html += `</tbody></table></div>`; list.innerHTML = html;
+            document.getElementById('statTotalUsers').innerText = totalU;
+            document.getElementById('statTotalPoints').innerText = new Intl.NumberFormat('vi-VN').format(totalP);
+        });
+        window.changeUserName = async (userId, currentName) => { let newName = prompt("Nhập TÊN THẬT hoặc BIỆT DANH cho người chơi này:", currentName); if(newName === null) return; newName = newName.trim(); if(newName === "") return alert("Tên không được trống!"); try { await updateDoc(doc(db, "users", userId), { displayName: newName }); } catch(e) { alert("Lỗi: " + e.message); } };
+
+        // Hàm lọc danh sách người dùng
+        window.filterAdminUsers = () => {
+            let input = document.getElementById('searchUserInput').value.toLowerCase();
+            let rows = document.querySelectorAll('#usersTable tbody tr');
+            rows.forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(input) ? '' : 'none';
+            });
+        };
+
+        onSnapshot(query(collection(db, "topups"), where("status", "==", "PENDING")), (snapshot) => { const list = document.getElementById('adminTopUpList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small mb-0'>Không có yêu cầu.</p>" : ""; snapshot.forEach((docSnap) => { const req = docSnap.data(); list.innerHTML += `<div class="border p-2 rounded bg-white mb-2 d-flex justify-content-between align-items-center"><div><strong>${req.userEmail.split('@')[0]}</strong> xin nạp giải <span class="text-primary fw-bold">${req.tournamentName}</span><br><small class="text-danger fw-bold">Nội dung CK: NAP ${req.userEmail.split('@')[0]}</small></div><div class="d-flex gap-2 align-items-center"><input type="number" id="pts_${docSnap.id}" class="form-control form-control-sm border-success" style="width:80px;" placeholder="Điểm"><button onclick="approveTopUp('${docSnap.id}', '${req.userId}', '${req.tournamentId}', '${req.userEmail}')" class="btn btn-success btn-sm fw-bold">Duyệt</button><button onclick="rejectTopUp('${docSnap.id}')" class="btn btn-outline-danger btn-sm">Hủy</button></div></div>`; }); });
+        window.approveTopUp = async (reqId, uId, tourId, email) => { const pts = parseInt(document.getElementById(`pts_${reqId}`).value); if(!pts || pts <= 0) return alert("Nhập số điểm!"); try { const uRef = doc(db, "users", uId); const uSnap = await getDoc(uRef); if(uSnap.exists()) { let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + pts }); } await updateDoc(doc(db, "topups", reqId), { status: "APPROVED", awardedPoints: pts }); sendBotChat(`💸 Ting ting! Đại gia <b>${email.split('@')[0]}</b> vừa bơm thêm <b>${pts}đ</b> vào tài khoản. Đạn đã lên nòng, anh em cẩn thận! 🔫`); } catch(e) { alert("Lỗi: " + e.message); } };
+        window.rejectTopUp = async (reqId) => { if(confirm("Từ chối nạp điểm?")) await updateDoc(doc(db, "topups", reqId), { status: "REJECTED" }); };
+
+        window.createTournament = async () => { const tName = document.getElementById('tournamentName').value.trim(); if(!tName) return alert("Nhập tên!"); try { await addDoc(collection(db, "tournaments"), { name: tName, createdAt: new Date() }); document.getElementById('tournamentName').value = ''; alert("Tạo Giải xong!"); } catch (e) { alert(e.message); } };
+        onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('matchTournament'); const listDiv = document.getElementById('tournamentList'); selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; listDiv.innerHTML = ''; snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; }); });
+
+        window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime + "+07:00").getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo trận thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>KÈO MỚI: ${tA} vs ${tB}</b> đã lên sàn! (Kèo: ${hc}). Anh em vào soi và chốt lẹ trước khi khóa sổ nha! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
+
+        onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => {
+            const list = document.getElementById('adminMatchList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small'>Chưa có trận nào.</p>" : ""; 
+            let matches = []; snapshot.forEach(doc => matches.push({ id: doc.id, ...doc.data() }));
+            matches.sort((a, b) => a.matchTime - b.matchTime); // Sắp xếp trận gần nhất lên đầu
+            matches.forEach((match) => {
+                const isLive = match.matchTime < Date.now();
+                const liveBadge = isLive ? `<span class="badge bg-danger pulse-anim ms-2">🔴 ĐANG ĐÁ</span>` : '';
+                const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'}) : "Chưa xác định"; const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-2">${match.tournamentName}</span>` : ``;
+                const editBtn = `<button onclick="openEditMatch('${match.id}', '${match.tournamentId}', '${match.teamA}', '${match.teamB}', '${match.handicap}', ${match.matchTime})" class="btn btn-outline-secondary btn-sm me-1" style="font-size: 0.75rem;">✏ Sửa</button>`;
+                const delBtn = `<button onclick="deleteMatch('${match.id}', '${match.tournamentId}', '${match.teamA} vs ${match.teamB}')" class="btn btn-outline-danger btn-sm" style="font-size: 0.75rem;">🗑 Xóa</button>`;
+                list.innerHTML += `<div class="col-12 mb-3"><div class="border p-3 rounded bg-white shadow-sm admin-card">${tName}<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0 text-primary fw-bold">${match.teamA} vs ${match.teamB} ${liveBadge}</h6><div>${editBtn}${delBtn}</div></div><div class="d-flex justify-content-between align-items-center mb-2"><p class="small text-danger fw-bold mb-0">Kèo: ${match.handicap}</p><span class="badge bg-secondary">Bóng lăn: ${matchDateStr}</span></div><button onclick="checkPlayers('${match.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, ${match.penalized}, false)" class="btn btn-info btn-sm text-white w-100 mb-2 fw-bold">Xem Ai Cược / Ai Chưa</button>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button onclick="chiaTien('${match.id}', '${match.teamA}', '${match.tournamentId}')" class="btn btn-outline-danger btn-sm flex-fill fw-bold">Chốt: ${match.teamA}</button>
+                        <button onclick="chiaTien('${match.id}', 'Hòa', '${match.tournamentId}')" class="btn btn-outline-success btn-sm flex-fill fw-bold">Chốt: Hòa</button>
+                        <button onclick="chiaTien('${match.id}', '${match.teamB}', '${match.tournamentId}')" class="btn btn-outline-primary btn-sm flex-fill fw-bold">Chốt: ${match.teamB}</button>
+                    </div>
+                </div></div>`;
+            });
+        });
+
+        // BẢO VỆ LỖI UNDEFINED BẰNG CÁCH KIỂM TRA uSnap.exists()
+        window.deleteMatch = async (matchId, tourId, matchName) => { 
+            if(!confirm("XÓA TRẬN sẽ HOÀN LẠI 50đ cho toàn bộ những người chơi đã cược. Chắc chắn xóa?")) return; 
+            try { 
+                const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); 
+                for (let d of betDocs.docs) { 
+                    const betData = d.data(); 
+                    if (betData.status === "PENDING") { 
+                        const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                        if (uSnap.exists()) { 
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                        } 
+                    } 
+                    await deleteDoc(doc(db, "bets", d.id)); 
+                } 
+                await deleteDoc(doc(db, "matches", matchId)); alert("Đã xóa trận!"); 
+                sendBotChat(`🗑 <b>HỦY KÈO: ${matchName}</b>! Kèo này có mùi nên Trọng tài xóa rồi. Đã back lại 50đ cho anh em đã lỡ tay đặt cược! 💸`); 
+            } catch (e) { alert("Lỗi: " + e.message); } 
+        };
+
+        window.openEditMatch = (matchId, tourId, teamA, teamB, handicap, matchTime) => { document.getElementById('editMatchId').value = matchId; document.getElementById('editTourId').value = tourId; document.getElementById('editTeamA').value = teamA; document.getElementById('editTeamB').value = teamB; document.getElementById('editHandicap').value = handicap; const vnTime = new Date(matchTime + (7 * 3600 * 1000)); document.getElementById('editMatchTime').value = vnTime.toISOString().slice(0, 16); document.getElementById('editMatchOverlay').style.display = 'block'; document.getElementById('editMatchModal').style.display = 'block'; };
+        window.closeEditMatch = () => { document.getElementById('editMatchOverlay').style.display = 'none'; document.getElementById('editMatchModal').style.display = 'none'; };
+        
+        window.saveEditMatch = async () => { 
+            const matchId = document.getElementById('editMatchId').value, tourId = document.getElementById('editTourId').value, tA = document.getElementById('editTeamA').value, tB = document.getElementById('editTeamB').value, hc = document.getElementById('editHandicap').value, mTime = document.getElementById('editMatchTime').value; 
+            if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); 
+            if(!confirm("Lưu thay đổi sẽ TỰ ĐỘNG HỦY và HOÀN TIỀN toàn bộ vé cược hiện tại của trận này. Tiếp tục?")) return; 
+            try { 
+                const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); 
+                for (let d of betDocs.docs) { 
+                    const betData = d.data(); 
+                    if (betData.status === "PENDING") { 
+                        const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                        if (uSnap.exists()) { 
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                        } 
+                    } 
+                    await deleteDoc(doc(db, "bets", d.id)); 
+                } 
+                const timeStamp = new Date(mTime + "+07:00").getTime(); 
+                await updateDoc(doc(db, "matches", matchId), { teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp }); 
+                alert("Cập nhật thành công!"); closeEditMatch(); 
+                sendBotChat(`✏️ <b>CẬP NHẬT KÈO: ${tA} vs ${tB}</b>! Trọng tài vừa sửa lại tỷ lệ/thông tin. Vé cược cũ đã bị hủy và hoàn tiền. Anh em load lại trang để cược lại nhé! 🔄`); 
+            } catch (e) { alert("Lỗi: " + e.message); } 
+        };
+
+        window.closePlayerList = () => document.getElementById('playerListSection').style.display = 'none';
+        window.checkPlayers = async (matchId, matchName, matchTime, isPenalized, isClosed) => { const playerSec = document.getElementById('playerListSection'); playerSec.style.display = 'block'; playerSec.scrollIntoView({ behavior: 'smooth', block: 'center' }); document.getElementById('checkMatchName').innerText = matchName + (isClosed ? " (KẾT THÚC)" : " (ĐANG MỞ)"); const listHasBet = document.getElementById('listHasBet'), listNotBet = document.getElementById('listNotBet'), btnPenalize = document.getElementById('btnPenalize'); listHasBet.innerHTML = "Đang tải..."; listNotBet.innerHTML = "Đang tải..."; try { const userDocs = await getDocs(collection(db, "users")); let allUsers = []; userDocs.forEach(d => Object.keys(d.data()).length > 0 && allUsers.push({ id: d.id, email: d.data().email, displayName: d.data().displayName || d.data().email.split('@')[0] })); const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let betUserIds = []; let betDetails = {}; betDocs.forEach(d => { betUserIds.push(d.data().userId); betDetails[d.data().userId] = d.data().selectedTeam; }); listHasBet.innerHTML = ""; listNotBet.innerHTML = ""; let notBetArray = []; allUsers.forEach(u => { if(betUserIds.includes(u.id)) listHasBet.innerHTML += `<li>${u.displayName} (Chọn: <strong class="text-primary">${betDetails[u.id]}</strong>)</li>`; else { listNotBet.innerHTML += `<li>${u.displayName}</li>`; notBetArray.push(u.id); }}); document.getElementById('countBet').innerText = betUserIds.length; document.getElementById('countNotBet').innerText = notBetArray.length; btnPenalize.style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
+        window.xuLyPhat = async (matchId, notBetArray) => { if(!confirm("Xác nhận phạt?")) return; try { for(let uid of notBetArray) { const uRef = doc(db, "users", uid); const uSnap = await getDoc(uRef); if(uSnap.exists()) await updateDoc(uRef, { missedMatches: (uSnap.data().missedMatches || 0) + 1 }); } await updateDoc(doc(db, "matches", matchId), { penalized: true }); alert("Đã phạt!"); document.getElementById('playerListSection').style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
+
+        onSnapshot(query(collection(db, "matches"), where("status", "==", "CLOSED")), (snapshot) => {
+            const list = document.getElementById('historyMatchList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small'>Chưa có lịch sử.</p>" : ""; 
+            let matches = []; snapshot.forEach(doc => matches.push({ id: doc.id, ...doc.data() }));
+            matches.sort((a, b) => b.matchTime - a.matchTime); // Sắp xếp trận mới nhất lên đầu
+            matches.forEach((match) => {
+                if(match.summary) {
+                    const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-1">${match.tournamentName}</span>` : ``;
+                    let summaryText = match.summary.isRefund ? `<span class="text-info fw-bold">Không có ai thắng. Đã hoàn 50đ.</span>` : `Thắng: ${match.summary.winCount} (+${match.summary.pointsPerWinner}đ) | Thua: ${match.summary.loseCount} (-50đ)`;
+                    list.innerHTML += `<div class="border-bottom py-3 admin-card px-2 rounded hover-bg-light">${tName}
+                        <div class="d-flex justify-content-between align-items-center mb-2"><div><strong class="text-dark fs-6">${match.teamA} vs ${match.teamB}</strong> <span class="badge bg-success ms-2">Thắng: ${match.winner}</span><span class="badge bg-secondary ms-1">Tỷ số: ${match.finalScore || "N/A"}</span></div>
+                            <button onclick="revertMatch('${match.id}')" class="btn btn-sm btn-outline-danger">Hoàn tác</button></div>
+                        <div class="d-flex justify-content-between"><div class="text-muted small">${summaryText}</div>
+                            <button onclick="checkPlayers('${match.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, true, true)" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem">Xem chi tiết</button></div></div>`;
+                }
+            });
+        });
+
+        // BẢO VỆ CHIA TIỀN BẰNG uSnap.exists()
+        window.chiaTien = async (matchId, winningTeam, tourId) => {
+            let score = prompt(`CHỐT ĐỘI THẮNG LÀ: ${winningTeam}\n\nVui lòng nhập tỷ số chung cuộc (Ví dụ: 2-1):`); if(score === null) return; score = score.trim() || "Không rõ";
+            try {
+                const userDocs = await getDocs(collection(db, "users")); let userDict = {}; userDocs.forEach(d => { userDict[d.id] = d.data().displayName || d.data().email.split('@')[0]; });
+                const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let dsThang = [], dsThua = []; let tenThang = [], tenThua = []; let matchNameStr = "";
+                let betUserIds = [];
+                betDocs.forEach(d => { let bData = d.data(); matchNameStr = bData.matchName; betUserIds.push(bData.userId); let uName = userDict[bData.userId] || bData.userEmail.split('@')[0]; if(bData.selectedTeam === winningTeam) { dsThang.push(d); tenThang.push(uName); } else { dsThua.push(d); tenThua.push(uName); } });
+                
+                // AUTO PHẠT NGƯỜI CHƯA CƯỢC
+                let penalizedUsers = [];
+                for (let uDoc of userDocs.docs) {
+                    let uData = uDoc.data();
+                    let uId = uDoc.id;
+                    if (uData.tournamentPoints && uData.tournamentPoints[tourId] !== undefined) {
+                        let uRef = doc(db, "users", uId);
+                        if (!betUserIds.includes(uId)) {
+                            let newMissed = (uData.missedMatches || 0) + 1;
+                            let newConsecutive = (uData.consecutiveMisses || 0) + 1;
+                            let updateData = { missedMatches: newMissed, consecutiveMisses: newConsecutive };
+                            if (newConsecutive >= 2) {
+                                let penalty = newConsecutive * 10;
+                                updateData[`tournamentPoints.${tourId}`] = (uData.tournamentPoints[tourId] || 0) - penalty;
+                                let uName = uData.displayName || (uData.email ? uData.email.split('@')[0] : "Khách");
+                                penalizedUsers.push(`- <b>${uName}</b>: Bỏ ${newConsecutive} trận (Phạt -${penalty}đ)`);
+                                await addDoc(collection(db, "bets"), { userId: uId, userEmail: uData.email || "", matchId: matchId, matchName: matchNameStr, tournamentId: tourId, selectedTeam: "❌ BỎ CƯỢC", points: 0, status: "PENALTY", earnedInfo: `-${penalty}đ`, penaltyAmount: penalty, matchSummary: `Phạt nguội do bỏ cược ${newConsecutive} trận liên tiếp`, timestamp: new Date() });
+                            }
+                            await updateDoc(uRef, updateData);
+                        } else if (uData.consecutiveMisses > 0) {
+                            await updateDoc(uRef, { consecutiveMisses: 0 });
+                        }
+                    }
+                }
+                if (penalizedUsers.length > 0) {
+                    setTimeout(() => sendBotChat(`🟥 <b>VAR PHẠT NGUỘI:</b> Phát hiện các idol trốn cược liên tiếp, Trọng tài đã rút thẻ đỏ trừ thẳng điểm vào tài khoản:<br>${penalizedUsers.join('<br>')}<br>Anh em nhớ lên thuyền đầy đủ nhé! 💸`), 1500);
+                }
+
+                const isRefund = dsThang.length === 0;
+                if (isRefund) {
+                    for (let d of dsThua) { 
+                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                        if(uSnap.exists()) {
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                        }
+                        await updateDoc(betRef, { status: "REFUND", earnedInfo: `+50đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai thắng. Hoàn tiền.`, tournamentId: tourId }); 
+                    }
+                    await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} người chơi.`);
+                    if(dsThua.length > 0) sendBotChat(`🏁 <b>KẾT QUẢ KÈO: ${matchNameStr} (Tỷ số ${score})</b><br>Ối dồi ôi! Cửa <b>${winningTeam}</b> vắng như chùa Bà Đanh. Trọng tài đã hoàn lại 50đ cho <b>${formatNames(tenThua)}</b> đi làm bát phở an ủi! 🍜`);
+                } else {
+                    const soThua = dsThua.length; const diemNhan = 50 + (soThua * 50 / dsThang.length); 
+                    for (let d of dsThang) { 
+                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                        if(uSnap.exists()){
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + diemNhan }); 
+                        }
+                        await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Thắng: ${dsThang.length} | Thua: ${soThua}`, tournamentId: tourId }); 
+                    }
+                    for (let d of dsThua) { 
+                        const betRef = doc(db, "bets", d.id); await updateDoc(betRef, { status: "LOSE", earnedInfo: `-50đ`, matchSummary: `Tỷ số: ${score} | Thắng: ${dsThang.length} | Thua: ${soThua}`, tournamentId: tourId }); 
+                    }
+                    await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: dsThang.length, loseCount: soThua, pointsPerWinner: diemNhan, isRefund: false } }); alert("Đã chốt và chia điểm thành công!");
+                    if(tenThang.length > 0) sendBotChat(`🎉 <b>KẾT QUẢ KÈO: ${matchNameStr} (Tỷ số ${score})</b><br>Các pháp sư <b>${formatNames(tenThang)}</b> đã bắt trúng mạch <b>${winningTeam}</b> và húp trọn <b>+${diemNhan}đ</b>/người! Quá đỉnh kouttt! 💸🏆`);
+                    if(tenThua.length > 0) setTimeout(() => sendBotChat(`🚑 Ở diễn biến khác, xe cứu thương đang rước <b>${formatNames(tenThua)}</b> ra đảo vì cúng 50đ cho đội bạn. Thua keo này ta bày keo khác nha các idol! 🌊🤣`), 1000);
+                }
+            } catch (error) { alert("Lỗi: " + error.message); }
+        };
+
+        // BẢO VỆ HOÀN TÁC BẰNG uSnap.exists()
+        window.revertMatch = async (matchId) => {
+            if(!confirm("CẢNH BÁO: Thu hồi lại tiền và mở lại trận?")) return;
+            try { 
+                const mSnap = await getDoc(doc(db, "matches", matchId)); const matchData = mSnap.data(); const isRefund = matchData.summary.isRefund; const pointsPerWinner = matchData.summary.pointsPerWinner; const tourId = matchData.tournamentId; const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId)));
+                let betUserIds = [];
+                for (let d of betDocs.docs) { 
+                    const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                    
+                    if (betData.status === "PENALTY") {
+                        if (uSnap.exists()) {
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.penaltyAmount || 0) });
+                        }
+                        await deleteDoc(betRef);
+                        continue;
+                    }
+
+                    betUserIds.push(betData.userId);
+                    if (uSnap.exists()) {
+                        let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
+                        if(isRefund && betData.status === "REFUND") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts - 50 }); } 
+                        else if(!isRefund && betData.status === "WIN") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts - pointsPerWinner }); } 
+                    }
+                    await updateDoc(betRef, { status: "PENDING", earnedInfo: "", matchSummary: "" }); 
+                }
+                const userDocs = await getDocs(collection(db, "users"));
+                for (let uDoc of userDocs.docs) {
+                    let uData = uDoc.data(); let uId = uDoc.id;
+                    if (uData.tournamentPoints && uData.tournamentPoints[tourId] !== undefined) {
+                        if (!betUserIds.includes(uId) && uData.missedMatches > 0) {
+                            await updateDoc(doc(db, "users", uId), { missedMatches: Math.max(0, uData.missedMatches - 1), consecutiveMisses: Math.max(0, (uData.consecutiveMisses || 1) - 1) });
+                        }
+                    }
+                }
+                await updateDoc(doc(db, "matches", matchId), { status: "OPEN", winner: "", finalScore: "", summary: null }); alert("Đã hoàn tác!");
+                sendBotChat(`🚨 <b>CHECK VAR TRẬN ${matchData.teamA} vs ${matchData.teamB}</b>! Trọng tài vừa quay xe hủy kết quả để tính lại. Xin phép thu hồi tiền thưởng của anh em, bình tĩnh chờ chốt lại nhé! 🤡🔙`);
+            } catch (error) { alert("Lỗi: " + error.message); }
+        };
+    </script>
+</body>
+>>>>>>> 34785a56aaa879029e2ee8501cc7c2a7e95362a4
 </html>
