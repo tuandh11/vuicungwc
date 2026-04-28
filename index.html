@@ -349,12 +349,13 @@
                 chatListener = onSnapshot(query(collection(db, "chats"), orderBy("timestamp", "asc")), (snapshot) => {
                     let hasNewMessage = false;
                     let hasMention = false;
+                    let myName = currentUserDoc ? (currentUserDoc.displayName || currentUserDoc.email.split('@')[0]) : user.email.split('@')[0];
                     snapshot.docChanges().forEach(change => { 
                         if (change.type === "added") {
                             hasNewMessage = true;
                             const msg = change.doc.data().message || "";
                             if (change.doc.data().userId !== user.uid) {
-                                if (msg.toLowerCase().includes('@all') || msg.toLowerCase().includes(`@${nameDisplay.toLowerCase()}`)) hasMention = true;
+                                if (msg.toLowerCase().includes('@all') || msg.toLowerCase().includes(`@${myName.toLowerCase()}`)) hasMention = true;
                             }
                         } 
                     });
@@ -371,9 +372,9 @@
                         
                         let formattedMsg = chat.message || "";
                         formattedMsg = formattedMsg.replace(/@all\b/gi, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @all</strong>`);
-                        if (nameDisplay) {
-                            const safeName = nameDisplay.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            formattedMsg = formattedMsg.replace(new RegExp(`@${safeName}`, 'gi'), `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${nameDisplay}</strong>`);
+                        if (myName) {
+                            const safeName = myName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            formattedMsg = formattedMsg.replace(new RegExp(`@${safeName}`, 'gi'), `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${myName}</strong>`);
                         }
                         
                         let reactionsHtml = '';
