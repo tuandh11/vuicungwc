@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WC 2026 - Betting App</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style> 
+        body { background-color: #f4f7f6; } 
+        .bet-card { border-radius: 15px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1); } 
+        .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; display: inline-block; vertical-align: middle;}
+        .emoji-bar { overflow-x: auto; white-space: nowrap; padding-bottom: 5px; }
+        .emoji-bar::-webkit-scrollbar { height: 4px; }
+        .emoji-bar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        .emoji-btn { cursor: pointer; font-size: 1.3rem; margin-right: 10px; transition: transform 0.1s; display: inline-block; }
+        .emoji-btn:active { transform: scale(1.3); }
+        .avatar { width: 35px; height: 35px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; flex-shrink: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.15); }
+        .match-card { transition: transform 0.2s, box-shadow 0.2s; border: 1px solid #edf2f7; }
+        .match-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        .team-name { font-size: 1.1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+        .vs-badge { background: linear-gradient(45deg, #ff416c, #ff4b2b); color: white; padding: 2px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; box-shadow: 0 2px 5px rgba(255,65,108,0.3); }
+        .app-title { background: -webkit-linear-gradient(45deg, #0052D4, #4364F7, #6FB1FC); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-pill { border-radius: 50px; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div id="authSection" class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card bet-card p-4 border-0" style="box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                <h3 class="text-center mb-4 fw-bold app-title">⚽ Vui cùng World Cup</h3>
+                <div id="loginForm">
+                    <p class="text-center small text-muted">Hệ thống nội bộ - Vui lòng đăng nhập</p>
+                    <input type="email" id="email" class="form-control mb-3" placeholder="Email của bạn">
+                    <input type="password" id="password" class="form-control mb-3" placeholder="Mật khẩu">
+                    <button onclick="handleLogin()" class="btn btn-primary w-100 mb-2 fw-bold">Vào hệ thống</button>
+                    <div class="text-center mt-2 small"><a href="#" onclick="handleForgotPassword()" class="text-danger">Quên mật khẩu?</a></div>
+                </div>
+                <p id="authMsg" class="text-danger mt-3 small text-center fw-bold"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainSection" style="display: none;">
+        <div id="changePassSection" class="card bet-card p-3 mb-4 border-warning" style="display: none; background-color: #fffdf5;">
+            <div class="d-flex justify-content-between"><h6 class="text-warning fw-bold">Đổi mật khẩu</h6><button onclick="document.getElementById('changePassSection').style.display='none'" class="btn-close btn-sm"></button></div>
+            <div class="d-flex gap-2 mt-2"><input type="password" id="newPassword" class="form-control form-control-sm" placeholder="Mật khẩu mới (ít nhất 6 ký tự)"><button onclick="handleChangePassword()" class="btn btn-warning btn-sm fw-bold">Lưu</button></div>
+        </div>
+
+        <div class="card bet-card p-3 mb-4 bg-white">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div id="userAvatarContainer"></div>
+                    <div>
+                        <h5 class="mb-1">Chào, <span id="displayName" class="text-success fw-bold">...</span></h5>
+                        <div id="penaltyInfo" class="mb-1" style="display:none;"></div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted small">Số dư giải: </span>
+                            <span id="pointsDisplay" class="fs-5 text-primary fw-bold">0</span>
+                            <button onclick="openTopUpModal(false)" id="btnTopUp" class="btn btn-sm btn-success btn-pill fw-bold" style="display:none; font-size: 0.75rem;">💰 Nạp</button>
+                        </div>
+                        <div id="playerStats" class="d-flex flex-wrap gap-2 text-muted mt-2" style="font-size: 0.8rem; display: none !important;">
+                            <span class="bg-light px-2 py-1 rounded border">Kèo: <b id="statTotal" class="text-dark">0</b></span>
+                            <span class="bg-success-subtle text-success px-2 py-1 rounded border border-success-subtle">W: <b id="statWin">0</b></span>
+                            <span class="bg-danger-subtle text-danger px-2 py-1 rounded border border-danger-subtle">L: <b id="statLose">0</b></span>
+                            <span class="bg-primary-subtle text-primary px-2 py-1 rounded border border-primary-subtle">Tỉ lệ: <b id="statRate">0%</b></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <a href="admin.html" id="btnGoAdmin" class="btn btn-warning btn-sm btn-pill mb-1 fw-bold" style="display:none;">🔥 Quản Trị</a>
+                    <button onclick="document.getElementById('rulesSection').style.display='block'" class="btn btn-sm btn-info text-white btn-pill mb-1 fw-bold">🏆 Thể lệ</button>
+                    <button onclick="document.getElementById('changePassSection').style.display='block'" class="btn btn-sm btn-outline-info btn-pill mb-1">🔑 Đổi MK</button>
+                    <button onclick="logout()" class="btn btn-sm btn-outline-danger btn-pill mb-1">🚪 Thoát</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="rulesSection" class="card bet-card p-4 mb-4 border-info" style="display: none; background-color: #f0f8ff;">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                <h5 class="text-info fw-bold mb-0">🏆 Thể lệ "Vui cùng World Cup"</h5>
+                <button onclick="document.getElementById('rulesSection').style.display='none'" class="btn-close"></button>
+            </div>
+            <div class="small text-dark" style="max-height: 350px; overflow-y: auto;">
+                <p><strong>1. VỐN KHỞI NGHIỆP & CÁCH THAM GIA</strong><br>- Mỗi giải đấu là một "Hũ điểm" riêng biệt. Người chơi bấm "Nạp điểm để Tham gia", quét mã QR và đợi Admin duyệt.</p>
+                <p><strong>2. LUẬT ĐẶT CƯỢC (ĐỒNG GIÁ 50Đ)</strong><br>- Mỗi trận chỉ cược 1 lần duy nhất với phí cố định là 50 điểm.<br>- Đã xác nhận đặt cược là <b>KHÔNG THỂ HỦY</b> hay thay đổi đội.</p>
+                <p><strong>3. CƠ CHẾ "CHIA HŨ" TÍNH ĐIỂM</strong><br>- Tất cả số điểm của nhóm <b>ĐOÁN SAI</b> sẽ được gom vào Quỹ chung.<br>- Toàn bộ Quỹ này sẽ được <b>chia đều</b> cho những người <b>ĐOÁN ĐÚNG</b>.<br>- <i>Trường hợp KHÔNG CÓ AI ĐOÁN ĐÚNG, hệ thống sẽ tự động hoàn trả 50đ về hũ cho tất cả mọi người.</i></p>
+                <p><strong>4. THỜI GIAN KHÓA SỔ (DEADLINE)</strong><br>- Tính năng đặt cược sẽ tự động khóa trước khi bóng lăn <b>120 phút (2 tiếng)</b>.</p>
+                <p><strong>5. QUY ĐỊNH PHẠT BỎ CƯỢC</strong><br>
+                - Đã nạp điểm tham gia giải nhưng không cược sẽ bị ghi nhận thẻ phạt.<br>
+                - <b>Phạt nguội:</b> Nếu bỏ cược liên tiếp từ 2 trận trở lên, hệ thống sẽ tự động trừ điểm trực tiếp vào tài khoản theo công thức: <b>[Số trận liên tiếp] x 10đ</b> (VD: Bỏ 2 trận liên tiếp trừ 20đ, 3 trận trừ 30đ...).<br>
+                - Chuỗi phạt liên tiếp sẽ lập tức được <b>Reset về 0</b> ngay khi người chơi tham gia cược trở lại.</p>
+            </div>
+        </div>
+
+        <div id="topUpSection" class="card bet-card p-4 mb-4 border-success" style="display: none; background-color: #f0fdf4;">
+            <div class="d-flex justify-content-between">
+                <h5 class="text-success fw-bold">Nạp điểm Giải: <span id="topUpTourName"></span></h5><button onclick="closeTopUpModal()" class="btn-close"></button>
+            </div>
+            <div class="row align-items-center mt-3">
+                <div class="col-md-4 text-center">
+                    <img src="https://api.vietqr.io/image/970436-0041000611783-oEybzAq.jpg?accountName=DANG%20HUNG%20TUAN&amount=500000" class="img-fluid rounded border shadow-sm">
+                </div>
+                <div class="col-md-8 mt-3 mt-md-0">
+                    <p><strong>B1:</strong> Quét mã Vietcombank. <strong>B2:</strong> Nhập Nội dung CK y hệt:</p>
+                    <div class="p-2 bg-white border border-danger rounded text-center mb-3"><h4 class="text-danger mb-0 fw-bold" id="transferMemo">NAP ...</h4></div>
+                    <button onclick="submitTopUp()" id="btnSubmitTopUp" class="btn btn-success w-100 fw-bold">Tôi đã chuyển tiền xong!</button>
+                </div>
+            </div>
+            <div id="topUpStatusList" class="mt-3"></div>
+        </div>
+
+        <div class="card bet-card p-3 mb-4 border-primary" style="background-color: #eef7ff;">
+            <label class="fw-bold text-primary mb-2">🌍 Chọn Giải Đấu để tham gia:</label>
+            <select id="userTournamentSelect" class="form-select border-primary fw-bold" onchange="renderFilteredData()">
+                <option value="ALL">-- Chọn một giải đấu bên dưới --</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6 col-md-12 mb-4">
+                <h5 class="mb-3 fw-bold text-primary">⚔️ Danh sách trận đấu</h5>
+                <div id="matchContainer" class="row"><div class="alert alert-info">Vui lòng chọn giải đấu.</div></div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5 class="mb-3 fw-bold text-secondary">📜 Lịch sử cược</h5>
+                <div class="card bet-card p-3"><div id="myHistoryList"></div></div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-4">
+                <h5 class="mb-3 fw-bold text-warning">🏆 Bảng Vàng Giải</h5>
+                <div class="card bet-card p-2" style="background-color: #fffaf0; border: 1px solid #ffecb3;">
+                    <div id="leaderboardList"><div class="text-center text-muted small">Vui lòng chọn giải đấu.</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="chatWidget" class="card shadow border-0" style="position: fixed; bottom: 20px; right: 20px; width: 350px; max-width: 90vw; z-index: 1000; border-radius: 15px; overflow: hidden; display: none;">
+        <div class="bg-primary text-white p-2 d-flex justify-content-between align-items-center" style="cursor: pointer;" onclick="toggleChatBody()">
+            <h6 class="mb-0 fw-bold">💬 Chém Gió & Báo Kèo</h6>
+            <div>
+                <span id="muteIcon" class="fw-bold me-3" title="Bật/Tắt âm thanh" onclick="toggleMute(event)">🔊</span>
+                <span id="chatToggleIcon" class="fw-bold">▲</span>
+            </div>
+        </div>
+        <div id="chatBody" style="display: none;">
+            <div id="chatMessages" class="p-3" style="height: 320px; overflow-y: auto; background-color: #e4e6eb; display: flex; flex-direction: column; gap: 12px;"></div>
+            <div class="px-2 py-2 bg-light border-top emoji-bar">
+                <span class="emoji-btn" onclick="addEmoji('⚽')">⚽</span>
+                <span class="emoji-btn" onclick="addEmoji('🏆')">🏆</span>
+                <span class="emoji-btn" onclick="addEmoji('🔥')">🔥</span>
+                <span class="emoji-btn" onclick="addEmoji('😂')">😂</span>
+                <span class="emoji-btn" onclick="addEmoji('😭')">😭</span>
+                <span class="emoji-btn" onclick="addEmoji('🤬')">🤬</span>
+                <span class="emoji-btn" onclick="addEmoji('💸')">💸</span>
+                <span class="emoji-btn" onclick="addEmoji('🤡')">🤡</span>
+                <span class="emoji-btn" onclick="addEmoji('🚑')">🚑</span>
+                <span class="emoji-btn" onclick="addEmoji('🎉')">🎉</span>
+                <span class="emoji-btn" onclick="addEmoji('🍺')">🍻</span>
+                <span class="emoji-btn" onclick="addEmoji('🤫')">🤫</span>
+            </div>
+            <div class="p-2 bg-white d-flex gap-2 border-top">
+                <input type="text" id="chatInput" class="form-control form-control-sm" placeholder="Gáy lên..." onkeypress="handleChatKeyPress(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">
+                <button onclick="sendChatMessage()" class="btn btn-primary btn-sm fw-bold">Gửi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Thẻ Audio cố định để xử lý chống chặn autoplay -->
+<audio id="chatAudio" src="./ting.mp3" preload="auto"></audio>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, query, onSnapshot, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = { apiKey: "AIzaSyDPBXK4t4ex8oBpe3x9a8m80jf5CZLrVH0", authDomain: "worldcup26-896ac.firebaseapp.com", projectId: "worldcup26-896ac", storageBucket: "worldcup26-896ac.firebasestorage.app", messagingSenderId: "1070038920983", appId: "1:1070038920983:web:f107f8e2fa2a5a79725152" };
+    const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwJCrULWQiHPmjsnXtCvQ29EIfONkKTD0T5_Lyu2awhOWuJ846-PoZo8stZDu9yDJHD/exec";
+
+    let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = [];
+
+    // --- HÀM TAG TÊN TRONG CHAT ---
+    window.tagUser = (name) => { const input = document.getElementById('chatInput'); input.value += `@${name} `; input.focus(); };
+
+    // --- HÀM TẠO AVATAR TỰ ĐỘNG ---
+    window.getAvatar = (name) => {
+        const colors = ['#f56a00', '#7265e6', '#ffbf00', '#00a2ae', '#1890ff', '#eb2f96', '#2f54eb', '#52c41a'];
+        const char = name ? name.charAt(0).toUpperCase() : '?';
+        const color = colors[char.charCodeAt(0) % colors.length] || '#ccc';
+        return `<div class="avatar" style="background-color: ${color};">${char}</div>`;
+    };
+
+    // --- MỞ KHÓA ÂM THANH CHO TRÌNH DUYỆT (CHỐNG CHẶN AUTOPLAY) ---
+    document.body.addEventListener('click', function unlockAudio() {
+        const audio = document.getElementById('chatAudio');
+        if(audio) { audio.play().then(() => { audio.pause(); audio.currentTime = 0; }).catch(() => {}); }
+    }, { once: true }); // Chỉ chạy 1 lần duy nhất khi người dùng click/chạm vào trang
+
+    // --- XỬ LÝ AUTH & GIAO DIỆN CƠ BẢN ---
+    window.handleLogin = async () => { const email = document.getElementById('email').value.trim(), pass = document.getElementById('password').value, msg = document.getElementById('authMsg'); if(!email || !pass) return msg.innerText = "Vui lòng nhập đủ thông tin!"; try { msg.innerText = "Đang kết nối..."; await signInWithEmailAndPassword(auth, email, pass); } catch (e) { msg.innerText = "Lỗi: Sai email hoặc mật khẩu!"; } };
+    window.handleForgotPassword = async () => { const email = document.getElementById('email').value.trim(); if(!email) return alert("Nhập Email vào ô đăng nhập rồi bấm Quên Mật Khẩu!"); try { await sendPasswordResetEmail(auth, email); alert("Đã gửi link đặt lại mật khẩu vào Email!"); } catch(e) { alert("Lỗi: " + e.message); } };
+    window.handleChangePassword = async () => { const newPass = document.getElementById('newPassword').value; if(newPass.length < 6) return alert("Mật khẩu phải từ 6 ký tự!"); try { await updatePassword(auth.currentUser, newPass); alert("Đổi mật khẩu thành công!"); document.getElementById('changePassSection').style.display = 'none'; } catch(e) { alert("Lỗi: Cần đăng nhập lại trước khi đổi MK."); } };
+    window.openTopUpModal = (isJoining) => { const selTour = document.getElementById('userTournamentSelect'); if(selTour.value === "ALL") return alert("Vui lòng chọn 1 Giải đấu!"); document.getElementById('topUpTourName').innerText = selTour.options[selTour.selectedIndex].text; document.getElementById('topUpSection').style.display = 'block'; document.getElementById('transferMemo').innerText = `NAP ${currentUserDoc.email.split('@')[0]}`; };
+    window.closeTopUpModal = () => document.getElementById('topUpSection').style.display = 'none';
+    window.submitTopUp = async () => { const selTourId = document.getElementById('userTournamentSelect').value; const selTourName = document.getElementById('userTournamentSelect').options[document.getElementById('userTournamentSelect').selectedIndex].text; const btn = document.getElementById('btnSubmitTopUp'); btn.disabled = true; btn.innerText = "Đang gửi..."; try { await addDoc(collection(db, "topups"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, tournamentId: selTourId, tournamentName: selTourName, status: "PENDING", timestamp: new Date() }); alert("Đã gửi yêu cầu nạp điểm!"); } catch (e) { alert("Lỗi: " + e.message); } btn.disabled = false; btn.innerText = "Tôi đã chuyển tiền xong!"; };
+
+    window.renderFilteredData = () => {
+        const selectedTourId = document.getElementById('userTournamentSelect').value;
+        const container = document.getElementById('matchContainer'); const historyList = document.getElementById('myHistoryList');
+        const btnTopUp = document.getElementById('btnTopUp'); const pointsDisplay = document.getElementById('pointsDisplay');
+        const leaderboard = document.getElementById('leaderboardList'); const now = Date.now();
+
+        if(selectedTourId === "ALL") {
+            pointsDisplay.innerHTML = `<span class="text-muted fs-6">Chọn 1 giải cụ thể</span>`; btnTopUp.style.display = 'none'; container.innerHTML = "<div class='col-12'><div class='alert alert-secondary'>Vui lòng chọn 1 Giải đấu cụ thể ở phía trên.</div></div>"; historyList.innerHTML = ""; leaderboard.innerHTML = ""; document.getElementById('playerStats').style.setProperty('display', 'none', 'important'); return;
+        }
+
+        let currentTourPoints = currentUserDoc.tournamentPoints ? currentUserDoc.tournamentPoints[selectedTourId] : undefined;
+        if (currentTourPoints === undefined) { pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Nạp điểm để Tham gia</button>`; btnTopUp.style.display = 'none'; document.getElementById('playerStats').style.setProperty('display', 'none', 'important'); } 
+        else { pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${currentTourPoints}</strong> đ`; btnTopUp.style.display = 'inline-block'; document.getElementById('playerStats').style.setProperty('display', 'flex', 'important'); }
+
+        let filteredBets = allMyBets.filter(b => b.tournamentId === selectedTourId);
+        historyList.innerHTML = filteredBets.length === 0 ? "<small class='text-muted'>Chưa cược.</small>" : ""; 
+        let myBetMatchIds = [];
+        let wCount = 0, lCount = 0;
+        filteredBets.forEach((bet) => {
+            myBetMatchIds.push(bet.matchId);
+            if (bet.status === "WIN") wCount++;
+            if (bet.status === "LOSE") lCount++;
+            let statusBadge = bet.status === "WIN" ? `<span class="badge bg-success">Thắng (${bet.earnedInfo})</span>` : (bet.status === "LOSE" ? `<span class="badge bg-danger">Thua (${bet.earnedInfo})</span>` : (bet.status === "REFUND" ? `<span class="badge bg-info text-dark">Hoàn tiền (${bet.earnedInfo})</span>` : (bet.status === "PENALTY" ? `<span class="badge bg-danger text-white">Phạt (${bet.earnedInfo})</span>` : `<span class="badge bg-warning text-dark">Chờ</span>`)));
+            let summary = bet.matchSummary ? `<div class="text-muted mt-1" style="font-size:0.75rem;">${bet.matchSummary}</div>` : '';
+            historyList.innerHTML += `<div class="border-bottom py-2"><strong>${bet.matchName}</strong><br><small>Đã chọn: ${bet.selectedTeam}</small> <br> ${statusBadge} ${summary}</div>`;
+        });
+
+        document.getElementById('statTotal').innerText = filteredBets.length;
+        document.getElementById('statWin').innerText = wCount;
+        document.getElementById('statLose').innerText = lCount;
+        document.getElementById('statRate').innerText = (wCount + lCount > 0) ? Math.round((wCount / (wCount + lCount)) * 100) + '%' : '0%';
+
+        let filteredMatches = allOpenMatches.filter(m => m.tournamentId === selectedTourId);
+        container.innerHTML = filteredMatches.length === 0 ? "<div class='col-12'><div class='alert alert-secondary'>Chưa có trận đấu nào đang mở.</div></div>" : ""; 
+        filteredMatches.forEach((match) => {
+            const isExpired = now > (match.matchTime - (120 * 60 * 1000)); const hasBet = myBetMatchIds.includes(match.id);
+            const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}) : "Chưa xác định";
+            
+            let actionArea = "";
+            if (currentTourPoints === undefined) actionArea = `<div class="alert alert-warning py-2 mb-0">Nạp điểm để tham gia giải.</div>`;
+            else if (hasBet) actionArea = `<div class="alert alert-success py-2 mb-0">✅ Đã cược.</div>`;
+            else if (isExpired) actionArea = `<div class="alert alert-secondary py-2 mb-0">❌ Quá hạn.</div>`;
+            else actionArea = `<div class="d-flex gap-2"><button class="btn btn-outline-danger btn-sm w-50 btn-pill text-truncate fw-bold" title="${match.teamA}" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', this)">Chọn ${match.teamA}</button><button class="btn btn-outline-primary btn-sm w-50 btn-pill text-truncate fw-bold" title="${match.teamB}" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', this)">Chọn ${match.teamB}</button></div>`;
+            
+            container.innerHTML += `<div class="col-12 mb-3"><div class="card bet-card match-card"><div class="card-body p-3">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge bg-light text-dark border"><i class="small">⏱</i> ${matchDateStr}</span>
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">Kèo: ${match.handicap}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="text-center w-40"><div class="fs-2 mb-1">🛡️</div><div class="team-name mx-auto" title="${match.teamA}">${match.teamA}</div></div>
+                    <div class="text-center w-20"><span class="vs-badge shadow-sm">VS</span></div>
+                    <div class="text-center w-40"><div class="fs-2 mb-1">🛡️</div><div class="team-name mx-auto" title="${match.teamB}">${match.teamB}</div></div>
+                </div>
+                <div class="mt-2 pt-2 border-top">${actionArea}</div>
+            </div></div></div>`;
+        });
+
+        leaderboard.innerHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; rankedUsers.forEach(u => { let pts = u.tournamentPoints[selectedTourId]; let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `<span class="text-muted small">#${rank}</span>`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "bg-primary-subtle rounded px-1" : ""; const ava = getAvatar(nameDisplay); leaderboard.innerHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><div class="d-flex align-items-center gap-2"><span style="width:20px; text-align:center;">${medal}</span><div style="transform: scale(0.85); margin-left:-5px;">${ava}</div><span class="truncate-text fw-bold text-dark" style="font-size:0.9rem;">${nameDisplay}</span></div><strong class="text-success">${pts}đ</strong></div>`; rank++; });
+    };
+
+    // --- LOGIC CHAT (BONG BÓNG MESSENGER + BỘ LỌC RÁC) ---
+    let chatListener = null; 
+    let isMuted = false;
+    let isInitialChatLoad = true;
+    window.toggleMute = (e) => { e.stopPropagation(); isMuted = !isMuted; document.getElementById('muteIcon').innerText = isMuted ? '🔇' : '🔊'; };
+    window.toggleChatBody = () => {
+        const body = document.getElementById('chatBody'); const icon = document.getElementById('chatToggleIcon');
+        if (body.style.display === 'none') { body.style.display = 'block'; icon.innerText = '▼'; scrollToBottom(); } 
+        else { body.style.display = 'none'; icon.innerText = '▲'; }
+    };
+    window.addEmoji = (emoji) => { const input = document.getElementById('chatInput'); input.value += emoji; input.focus(); };
+    window.handleChatKeyPress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
+    function scrollToBottom() { const container = document.getElementById('chatMessages'); container.scrollTop = container.scrollHeight; }
+    
+    window.sendChatMessage = async () => {
+        if (!currentUserDoc) return alert("Đang đồng bộ dữ liệu, vui lòng chờ 1 giây...");
+        const input = document.getElementById('chatInput'); const msg = input.value.trim(); if (!msg) return; input.value = '';
+        const senderName = currentUserDoc.displayName || (currentUserDoc.email ? currentUserDoc.email.split('@')[0] : "Khách");
+        try {
+            await addDoc(collection(db, "chats"), {
+                userId: currentUserDoc.uid,
+                userName: senderName,
+                message: msg,
+                timestamp: new Date()
+            });
+        } catch (e) { alert("Lỗi gửi tin: " + e.message); }
+    };
+
+    // KHỐI LẮNG NGHE DUY NHẤT
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            document.getElementById('authSection').style.display = 'none'; 
+            document.getElementById('mainSection').style.display = 'block'; 
+            document.getElementById('chatWidget').style.display = 'block';
+            
+            onSnapshot(doc(db, "users", user.uid), (docSnap) => { 
+                if (docSnap.exists()) { 
+                    currentUserDoc = { uid: user.uid, ...docSnap.data() }; 
+                    const nameDisplay = currentUserDoc.displayName || user.email.split('@')[0];
+                    document.getElementById('displayName').innerText = nameDisplay;
+                    document.getElementById('userAvatarContainer').innerHTML = getAvatar(nameDisplay);
+
+                    // Xử lý hiển thị thông báo phạt
+                    const penaltyContainer = document.getElementById('penaltyInfo');
+                    if(currentUserDoc.missedMatches > 0) {
+                        penaltyContainer.style.display = 'block';
+                        let consecutiveHtml = "";
+                        if(currentUserDoc.consecutiveMisses >= 2) {
+                            consecutiveHtml = `<span class="text-danger fw-bold ms-2">⚠️ Bỏ cược ${currentUserDoc.consecutiveMisses} trận liên tiếp (Đã phạt -${currentUserDoc.consecutiveMisses * 10}đ)!</span>`;
+                        }
+                        penaltyContainer.innerHTML = `<span class="badge bg-warning text-dark">Thẻ phạt: ${currentUserDoc.missedMatches} lần bỏ cược</span>${consecutiveHtml}`;
+                    } else {
+                        penaltyContainer.style.display = 'none';
+                    }
+
+                    if(currentUserDoc.role === "admin") document.getElementById('btnGoAdmin').style.display = 'inline-block'; 
+                    renderFilteredData(); 
+                }
+            });
+
+            if(!chatListener) {
+                chatListener = onSnapshot(query(collection(db, "chats"), orderBy("timestamp", "asc")), (snapshot) => {
+                    let hasNewMessage = false;
+                    snapshot.docChanges().forEach(change => { if (change.type === "added") hasNewMessage = true; });
+
+                    const container = document.getElementById('chatMessages'); container.innerHTML = "";
+                    snapshot.forEach(docSnap => {
+                        const chat = docSnap.data(); 
+                        
+                        // LỌC RÁC: Nếu tin nhắn bị undefined hoặc rỗng thì KHÔNG HIỂN THỊ
+                        if (!chat.message || String(chat.message).includes("undefined") || String(chat.userName).includes("undefined")) return;
+
+                        const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
+                        const safeUserName = chat.userName || "Khách";
+                        
+                        if (chat.userId === "SYSTEM_BOT") {
+                            container.innerHTML += `
+                                <div class="align-self-center my-2" style="max-width: 95%; width: 100%;">
+                                    <div class="bg-warning text-dark p-2 shadow-sm text-center" style="border-radius: 10px; font-size: 0.8rem; border: 1px dashed #ffc107;">
+                                        ${chat.message}
+                                    </div>
+                                </div>`;
+                        }
+                        else if (chat.userId === user.uid) {
+                            container.innerHTML += `
+                                <div class="d-flex mb-1 justify-content-end align-items-end gap-2">
+                                    <div style="max-width: 75%;">
+                                        <div class="bg-primary text-white p-2 shadow-sm" style="border-radius: 15px 15px 0 15px; font-size: 0.9rem;">${chat.message}</div>
+                                        <div class="text-end text-muted mt-1" style="font-size: 0.65rem;">${timeStr}</div>
+                                    </div>
+                                </div>`;
+                        } else {
+                            const avaHtml = getAvatar(safeUserName);
+                            container.innerHTML += `
+                                <div class="d-flex mb-1 align-items-end gap-2">
+                                    <div style="margin-bottom: 18px;">${avaHtml}</div>
+                                    <div style="max-width: 75%;">
+                                        <div class="small fw-bold text-secondary mb-1" style="font-size: 0.7rem; margin-left: 2px; cursor:pointer;" onclick="tagUser('${safeUserName}')" title="Nhấn để Tag">${safeUserName}</div>
+                                        <div class="bg-white border p-2 shadow-sm" style="border-radius: 15px 15px 15px 0; font-size: 0.9rem;">${chat.message}</div>
+                                        <div class="text-start text-muted mt-1" style="font-size: 0.65rem; margin-left: 2px;">${timeStr}</div>
+                                    </div>
+                                </div>`;
+                        }
+                    });
+                    scrollToBottom();
+                    
+                    if (!isInitialChatLoad && hasNewMessage && !isMuted) {
+                        const audio = document.getElementById('chatAudio');
+                        if(audio) { audio.currentTime = 0; audio.play().catch(e => console.log("Trình duyệt chặn autoplay: ", e)); }
+                    }
+                    isInitialChatLoad = false;
+                });
+            }
+
+            onSnapshot(collection(db, "users"), (snapshot) => { allUsersData = []; snapshot.forEach(doc => allUsersData.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
+            onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('userTournamentSelect'); selectBox.innerHTML = '<option value="ALL">-- Chọn giải đấu --</option>'; snapshot.forEach(doc => { selectBox.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; }); });
+            onSnapshot(query(collection(db, "topups"), where("userId", "==", user.uid)), (snapshot) => { const list = document.getElementById('topUpStatusList'); list.innerHTML = ""; snapshot.forEach(doc => { const t = doc.data(); let badge = t.status === "PENDING" ? `<span class="badge bg-warning text-dark">Chờ</span>` : (t.status === "APPROVED" ? `<span class="badge bg-success">+${t.awardedPoints}</span>` : `✖`); list.innerHTML += `<div class="small text-muted border-bottom py-1">${t.tournamentName}: ${badge}</div>`; }); });
+            onSnapshot(query(collection(db, "bets"), where("userId", "==", user.uid)), (snapshot) => { allMyBets = []; snapshot.forEach(doc => allMyBets.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
+            onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => { allOpenMatches = []; snapshot.forEach(doc => allOpenMatches.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
+        
+        } else { 
+            document.getElementById('authSection').style.display = 'flex'; 
+            document.getElementById('mainSection').style.display = 'none'; 
+            document.getElementById('chatWidget').style.display = 'none'; 
+        }
+    });
+
+    // --- BOT TỰ ĐỘNG NHẮC NHỞ CHỐT KÈO ---
+    setInterval(async () => {
+        if (!currentUserDoc || allOpenMatches.length === 0) return;
+        const now = Date.now();
+        
+        // Clone danh sách trận để vòng lặp không bị ảnh hưởng nếu realtime update giữa chừng
+        const matchesToCheck = [...allOpenMatches];
+
+        for (let match of matchesToCheck) {
+            if (!match.matchTime || !match.tournamentId) continue;
+            let minsLeft = (match.matchTime - now) / 60000;
+            let milestone = null;
+            
+            // Xác định mốc thời gian hiện tại
+            if (minsLeft <= 180 && minsLeft > 165 && !match.reminded180) milestone = 180;
+            else if (minsLeft <= 165 && minsLeft > 150 && !match.reminded165) milestone = 165;
+            else if (minsLeft <= 150 && minsLeft > 135 && !match.reminded150) milestone = 150;
+            else if (minsLeft <= 135 && minsLeft > 125 && !match.reminded135) milestone = 135;
+            else if (minsLeft <= 125 && minsLeft > 120 && !match.reminded125) milestone = 125;
+            else if (minsLeft <= 0 && !match.matchStartedNotified) milestone = "START";
+
+            if (milestone) {
+                try {
+                    // Đợi ngẫu nhiên 0-3s thay vì dùng setTimeout lồng nhau (tránh bị trình duyệt drop ở tab ẩn)
+                    await new Promise(resolve => setTimeout(resolve, Math.random() * 3000));
+
+                    const matchRef = doc(db, "matches", match.id);
+                    const mSnap = await getDoc(matchRef);
+                    
+                    // XỬ LÝ RIÊNG CHO MỐC BẮT ĐẦU TRẬN ĐẤU
+                    if (milestone === "START") {
+                        if (mSnap.exists() && mSnap.data().matchStartedNotified) continue;
+                        await updateDoc(matchRef, { matchStartedNotified: true });
+                        
+                        const startPhrases = [
+                            `Đã đến giờ G! Trận <b>${match.teamA} vs ${match.teamB}</b> chính thức bắt đầu. Chúc anh em xa bờ bình an! 🌊🤣`,
+                            `Tiếng còi đã cất lên! Trận <b>${match.teamA} vs ${match.teamB}</b> lăn bóng rồi. Anh em mở bia, pha mì tôm xem thôi! 🍻🍜`,
+                            `Bóng đã lăn trên sân <b>${match.teamA} vs ${match.teamB}</b>! Ai lỡ nằm nhầm cửa thì giờ niệm thần chú đi là vừa! 🧘‍♂️📉`,
+                            `Bíp bíp bíp! Trận đấu <b>${match.teamA} vs ${match.teamB}</b> bắt đầu. Giờ phút sinh tử của các pháp sư tài chính đến rồi! 💸🔥`,
+                            `Trận <b>${match.teamA} vs ${match.teamB}</b> đang diễn ra! Đề nghị anh em kìm nén cảm xúc, vỡ TV không ai đền đâu nhé! 📺🔨`
+                        ];
+                        const randomStartMsg = startPhrases[Math.floor(Math.random() * startPhrases.length)];
+                        await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Trọng Tài Báo Kèo", message: `⚽ ${randomStartMsg}`, timestamp: new Date() });
+                        continue;
+                    }
+
+                    // Double-check xem có bot của client nào khác báo chưa
+                    if (mSnap.exists() && mSnap.data()[`reminded${milestone}`]) continue;
+                    
+                    // Khóa cờ ngay lập tức
+                    await updateDoc(matchRef, { [`reminded${milestone}`]: true });
+
+                    // Lấy danh sách cược
+                    const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", match.id)));
+                    let betUserIds = [];
+                    betDocs.forEach(d => betUserIds.push(d.data().userId));
+                    
+                    // Lọc AE chưa cược
+                    let notBetNames = [];
+                    allUsersData.forEach(u => {
+                        if (u.tournamentPoints && u.tournamentPoints[match.tournamentId] !== undefined) {
+                            if (!betUserIds.includes(u.id)) {
+                                notBetNames.push(u.displayName || (u.email ? u.email.split('@')[0] : "Khách"));
+                            }
+                        }
+                    });
+
+                    if (notBetNames.length > 0) {
+                        const formatNames = (names) => { if(names.length <= 5) return names.join(', '); return names.slice(0, 5).join(', ') + ` và ${names.length - 5} ae khác`; };
+                        let minsToDeadline = Math.floor(minsLeft - 120);
+                        if (minsToDeadline < 0) minsToDeadline = 0;
+                        
+                        const msg = `⏳ Kèo <b>${match.teamA} vs ${match.teamB}</b> sẽ KHÓA SỔ sau khoảng <b>${minsToDeadline} phút</b> nữa! Lên thuyền thôi các ae: <b>${formatNames(notBetNames)}</b> kẻo ăn thẻ phạt nha! ⚠️`;
+                        
+                        await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Trọng Tài Báo Kèo", message: msg, timestamp: new Date() });
+                    }
+                } catch(e) { console.log("Lỗi Bot nhắc nhở trận " + match.id + ": ", e); }
+            }
+        }
+    }, 30000); // Quét kiểm tra mỗi 30 giây
+
+    window.placeBet = async (matchId, selectedTeam, matchName, tournamentId, btnElement) => {
+        let currentPoints = currentUserDoc.tournamentPoints ? (currentUserDoc.tournamentPoints[tournamentId] || 0) : 0;
+        if(currentPoints < 50) return alert("Không đủ điểm!"); 
+        if(!confirm(`Xác nhận cược 50đ cho cửa ${selectedTeam}?`)) return; 
+        
+        if(btnElement) { btnElement.disabled = true; btnElement.innerHTML = "Đang chốt... ⏳"; }
+        
+        try { 
+            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50 }); 
+            await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
+            
+            const botPhrases = [
+                `vừa rải 50 cành vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Anh em theo hay ngược? 😎`,
+                `đã lên thuyền <b>${selectedTeam}</b>. Sóng to gió lớn đừng vội quay xe! ⛵`,
+                `nhắm mắt đưa chân, gửi gắm 50đ cho <b>${selectedTeam}</b> kèo ${matchName}. Mong cô thương! 🙏`,
+                `tin lời thầy bói, xuống xác <b>${selectedTeam}</b> trận ${matchName}. Sai thì do bói! 🔮`,
+                `vừa gáy to chốt cửa <b>${selectedTeam}</b>. Ngã ở đâu gấp đôi ở đó! 💸`,
+                `mới ủng hộ <b>${selectedTeam}</b> 50đ lấy thảo. Cổ vũ nhiệt tình lên! 📣`,
+                `chính thức all-in 50đ vào <b>${selectedTeam}</b>. Kèo này bao sáng! 🌟`
+            ];
+            const randomMsg = botPhrases[Math.floor(Math.random() * botPhrases.length)];
+            const playerName = currentUserDoc.displayName || currentUserDoc.email.split('@')[0];
+            
+            await addDoc(collection(db, "chats"), {
+                userId: "SYSTEM_BOT",
+                userName: "🤖 Trọng Tài Báo Kèo",
+                message: `📢 Biến căng: <b>${playerName}</b> ${randomMsg}`,
+                timestamp: new Date()
+            });
+
+            alert("Chốt kèo thành công! Hãy vào khung chat xem thông báo."); 
+            if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: 50 }), headers: { 'Content-Type': 'application/json' } }); 
+        } catch (e) { alert("Lỗi cược!"); if(btnElement) { btnElement.disabled = false; btnElement.innerText = selectedTeam; } } 
+    };
+    
+    window.logout = () => signOut(auth);
+</script>
+</body>
+</html>
