@@ -113,7 +113,7 @@
 
         <div class="card bet-card p-3 mb-4 border-primary" style="background-color: #eef7ff;">
             <label class="fw-bold text-primary mb-2">🌍 Chọn Giải Đấu để tham gia:</label>
-            <select id="userTournamentSelect" class="form-select border-primary fw-bold" onchange="renderFilteredData()">
+            <select id="userTournamentSelect" class="form-select border-primary fw-bold" onchange="window.visibleHistoryCount=5; renderFilteredData()">
                 <option value="ALL">-- Chọn một giải đấu bên dưới --</option>
             </select>
         </div>
@@ -181,6 +181,7 @@
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwJCrULWQiHPmjsnXtCvQ29EIfONkKTD0T5_Lyu2awhOWuJ846-PoZo8stZDu9yDJHD/exec";
 
     let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = [];
+    window.visibleHistoryCount = 5; // Biến giới hạn số trận lịch sử hiển thị
 
     // --- HÀM TAG TÊN TRONG CHAT ---
     window.tagUser = (name) => { const input = document.getElementById('chatInput'); input.value += `@${name} `; input.focus(); };
@@ -223,16 +224,32 @@
 
         let filteredBets = allMyBets.filter(b => b.tournamentId === selectedTourId);
         historyList.innerHTML = filteredBets.length === 0 ? "<small class='text-muted'>Chưa cược.</small>" : ""; 
+
+        // Sắp xếp lịch sử cược: Mới nhất lên đầu
+        filteredBets.sort((a, b) => {
+            const timeA = a.timestamp?.toDate ? a.timestamp.toDate().getTime() : 0;
+            const timeB = b.timestamp?.toDate ? b.timestamp.toDate().getTime() : 0;
+            return timeB - timeA;
+        });
+
         let myBetMatchIds = [];
         let wCount = 0, lCount = 0;
         filteredBets.forEach((bet) => {
             myBetMatchIds.push(bet.matchId);
             if (bet.status === "WIN") wCount++;
             if (bet.status === "LOSE") lCount++;
+        });
+
+        let betsToShow = filteredBets.slice(0, window.visibleHistoryCount);
+        betsToShow.forEach((bet) => {
             let statusBadge = bet.status === "WIN" ? `<span class="badge bg-success">Thắng (${bet.earnedInfo})</span>` : (bet.status === "LOSE" ? `<span class="badge bg-danger">Thua (${bet.earnedInfo})</span>` : (bet.status === "REFUND" ? `<span class="badge bg-info text-dark">Hoàn tiền (${bet.earnedInfo})</span>` : (bet.status === "PENALTY" ? `<span class="badge bg-danger text-white">Phạt (${bet.earnedInfo})</span>` : `<span class="badge bg-warning text-dark">Chờ</span>`)));
             let summary = bet.matchSummary ? `<div class="text-muted mt-1" style="font-size:0.75rem;">${bet.matchSummary}</div>` : '';
             historyList.innerHTML += `<div class="border-bottom py-2"><strong>${bet.matchName}</strong><br><small>Đã chọn: ${bet.selectedTeam}</small> <br> ${statusBadge} ${summary}</div>`;
         });
+
+        if (filteredBets.length > window.visibleHistoryCount) {
+            historyList.innerHTML += `<button onclick="window.visibleHistoryCount += 5; renderFilteredData()" class="btn btn-outline-secondary btn-sm w-100 mt-2 fw-bold">▼ Hiển thị thêm</button>`;
+        }
 
         document.getElementById('statTotal').innerText = filteredBets.length;
         document.getElementById('statWin').innerText = wCount;
@@ -331,7 +348,16 @@
             if(!chatListener) {
                 chatListener = onSnapshot(query(collection(db, "chats"), orderBy("timestamp", "asc")), (snapshot) => {
                     let hasNewMessage = false;
-                    snapshot.docChanges().forEach(change => { if (change.type === "added") hasNewMessage = true; });
+                    let hasMention = false;
+                    snapshot.docChanges().forEach(change => { 
+                        if (change.type === "added") {
+                            hasNewMessage = true;
+                            const msg = change.doc.data().message || "";
+                            if (change.doc.data().userId !== user.uid) {
+                                if (msg.toLowerCase().includes('@all') || msg.toLowerCase().includes(`@${nameDisplay.toLowerCase()}`)) hasMention = true;
+                            }
+                        } 
+                    });
 
                     const container = document.getElementById('chatMessages'); container.innerHTML = "";
                     snapshot.forEach(docSnap => {
@@ -343,30 +369,69 @@
                         const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
                         const safeUserName = chat.userName || "Khách";
                         
+                        let formattedMsg = chat.message || "";
+                        formattedMsg = formattedMsg.replace(/@all\b/gi, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @all</strong>`);
+                        if (nameDisplay) {
+                            const safeName = nameDisplay.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            formattedMsg = formattedMsg.replace(new RegExp(`@${safeName}`, 'gi'), `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${nameDisplay}</strong>`);
+                        }
+                        
+                        let reactionsHtml = '';
+                        if (chat.reactions) {
+                            const emojis = ['😂', '❤️', '😡'];
+                            emojis.forEach(e => {
+                                if (chat.reactions[e] && chat.reactions[e].length > 0) {
+                                    const count = chat.reactions[e].length;
+                                    const hasReacted = chat.reactions[e].includes(user.uid) ? 'bg-primary-subtle border-primary' : 'bg-light border';
+                                    reactionsHtml += `<span class="badge ${hasReacted} text-dark p-1 me-1 shadow-sm" style="cursor:pointer; font-size:0.7rem;" onclick="reactToMessage('${docSnap.id}', '${e}')">${e} <span class="text-muted small">${count}</span></span>`;
+                                }
+                            });
+                        }
+
                         if (chat.userId === "SYSTEM_BOT") {
                             container.innerHTML += `
                                 <div class="align-self-center my-2" style="max-width: 95%; width: 100%;">
                                     <div class="bg-warning text-dark p-2 shadow-sm text-center" style="border-radius: 10px; font-size: 0.8rem; border: 1px dashed #ffc107;">
-                                        ${chat.message}
+                                        ${formattedMsg}
                                     </div>
                                 </div>`;
                         }
                         else if (chat.userId === user.uid) {
+                            const reactionMenu = `<div class="d-flex mt-1 align-items-center justify-content-end position-relative w-100">
+                                <span class="badge bg-light text-muted border p-1 shadow-sm me-1" style="cursor:pointer; font-size:0.7rem;" onclick="toggleReactionMenu('${docSnap.id}')">+😀</span>
+                                ${reactionsHtml}
+                                <div id="reactMenu_${docSnap.id}" class="bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; right: 0; z-index:10; white-space: nowrap;">
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); toggleReactionMenu('${docSnap.id}')">😂</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); toggleReactionMenu('${docSnap.id}')">❤️</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); toggleReactionMenu('${docSnap.id}')">😡</span>
+                                </div>
+                            </div>`;
                             container.innerHTML += `
                                 <div class="d-flex mb-1 justify-content-end align-items-end gap-2">
-                                    <div style="max-width: 75%;">
-                                        <div class="bg-primary text-white p-2 shadow-sm" style="border-radius: 15px 15px 0 15px; font-size: 0.9rem;">${chat.message}</div>
-                                        <div class="text-end text-muted mt-1" style="font-size: 0.65rem;">${timeStr}</div>
+                                    <div style="max-width: 75%; display: flex; flex-direction: column; align-items: flex-end;">
+                                        <div class="bg-primary text-white p-2 shadow-sm" style="border-radius: 15px 15px 0 15px; font-size: 0.9rem;">${formattedMsg}</div>
+                                        ${reactionMenu}
+                                        <div class="text-end text-muted" style="font-size: 0.65rem;">${timeStr}</div>
                                     </div>
                                 </div>`;
                         } else {
+                            const reactionMenu = `<div class="d-flex mt-1 align-items-center position-relative w-100">
+                                ${reactionsHtml}
+                                <span class="badge bg-light text-muted border p-1 shadow-sm" style="cursor:pointer; font-size:0.7rem;" onclick="toggleReactionMenu('${docSnap.id}')">+😀</span>
+                                <div id="reactMenu_${docSnap.id}" class="bg-white border rounded shadow p-1 position-absolute" style="display:none; bottom: 100%; left: 0; z-index:10; white-space: nowrap;">
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😂'); toggleReactionMenu('${docSnap.id}')">😂</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '❤️'); toggleReactionMenu('${docSnap.id}')">❤️</span>
+                                    <span class="emoji-btn m-0 p-1" onclick="reactToMessage('${docSnap.id}', '😡'); toggleReactionMenu('${docSnap.id}')">😡</span>
+                                </div>
+                            </div>`;
                             const avaHtml = getAvatar(safeUserName);
                             container.innerHTML += `
                                 <div class="d-flex mb-1 align-items-end gap-2">
                                     <div style="margin-bottom: 18px;">${avaHtml}</div>
                                     <div style="max-width: 75%;">
                                         <div class="small fw-bold text-secondary mb-1" style="font-size: 0.7rem; margin-left: 2px; cursor:pointer;" onclick="tagUser('${safeUserName}')" title="Nhấn để Tag">${safeUserName}</div>
-                                        <div class="bg-white border p-2 shadow-sm" style="border-radius: 15px 15px 15px 0; font-size: 0.9rem;">${chat.message}</div>
+                                        <div class="bg-white border p-2 shadow-sm" style="border-radius: 15px 15px 15px 0; font-size: 0.9rem;">${formattedMsg}</div>
+                                        ${reactionMenu}
                                         <div class="text-start text-muted mt-1" style="font-size: 0.65rem; margin-left: 2px;">${timeStr}</div>
                                     </div>
                                 </div>`;
@@ -374,9 +439,11 @@
                     });
                     scrollToBottom();
                     
-                    if (!isInitialChatLoad && hasNewMessage && !isMuted) {
-                        const audio = document.getElementById('chatAudio');
-                        if(audio) { audio.currentTime = 0; audio.play().catch(e => console.log("Trình duyệt chặn autoplay: ", e)); }
+                    if (!isInitialChatLoad && (hasNewMessage || hasMention)) {
+                        if (!isMuted || hasMention) {
+                            const audio = document.getElementById('chatAudio');
+                            if(audio) { audio.currentTime = 0; audio.play().catch(e => console.log("Trình duyệt chặn autoplay: ", e)); }
+                        }
                     }
                     isInitialChatLoad = false;
                 });
