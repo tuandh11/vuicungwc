@@ -125,7 +125,7 @@
             });
             html += `</tbody></table></div>`; list.innerHTML = html;
             document.getElementById('statTotalUsers').innerText = totalU;
-            document.getElementById('statTotalPoints').innerText = new Intl.NumberFormat('vi-VN').format(totalP);
+            document.getElementById('statTotalPoints').innerText = new Intl.NumberFormat('vi-VN').format(Number(totalP.toFixed(2)));
         });
         window.changeUserName = async (userId, currentName) => { let newName = prompt("Nhập TÊN THẬT hoặc BIỆT DANH cho người chơi này:", currentName); if(newName === null) return; newName = newName.trim(); if(newName === "") return alert("Tên không được trống!"); try { await updateDoc(doc(db, "users", userId), { displayName: newName }); } catch(e) { alert("Lỗi: " + e.message); } };
 
@@ -139,7 +139,7 @@
         };
 
         onSnapshot(query(collection(db, "topups"), where("status", "==", "PENDING")), (snapshot) => { const list = document.getElementById('adminTopUpList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small mb-0'>Không có yêu cầu.</p>" : ""; snapshot.forEach((docSnap) => { const req = docSnap.data(); list.innerHTML += `<div class="border p-2 rounded bg-white mb-2 d-flex justify-content-between align-items-center"><div><strong>${req.userEmail.split('@')[0]}</strong> xin nạp giải <span class="text-primary fw-bold">${req.tournamentName}</span><br><small class="text-danger fw-bold">Nội dung CK: NAP ${req.userEmail.split('@')[0]}</small></div><div class="d-flex gap-2 align-items-center"><input type="number" id="pts_${docSnap.id}" class="form-control form-control-sm border-success" style="width:80px;" placeholder="Điểm"><button onclick="approveTopUp('${docSnap.id}', '${req.userId}', '${req.tournamentId}', '${req.userEmail}')" class="btn btn-success btn-sm fw-bold">Duyệt</button><button onclick="rejectTopUp('${docSnap.id}')" class="btn btn-outline-danger btn-sm">Hủy</button></div></div>`; }); });
-        window.approveTopUp = async (reqId, uId, tourId, email) => { const pts = parseInt(document.getElementById(`pts_${reqId}`).value); if(!pts || pts <= 0) return alert("Nhập số điểm!"); try { const uRef = doc(db, "users", uId); const uSnap = await getDoc(uRef); if(uSnap.exists()) { let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + pts }); } await updateDoc(doc(db, "topups", reqId), { status: "APPROVED", awardedPoints: pts }); sendBotChat(`💸 Ting ting! Đại gia <b>${email.split('@')[0]}</b> vừa bơm thêm <b>${pts}đ</b> vào tài khoản. Đạn đã lên nòng, anh em cẩn thận! 🔫`); } catch(e) { alert("Lỗi: " + e.message); } };
+        window.approveTopUp = async (reqId, uId, tourId, email) => { const pts = parseInt(document.getElementById(`pts_${reqId}`).value); if(!pts || pts <= 0) return alert("Nhập số điểm!"); try { const uRef = doc(db, "users", uId); const uSnap = await getDoc(uRef); if(uSnap.exists()) { let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + pts).toFixed(2)) }); } await updateDoc(doc(db, "topups", reqId), { status: "APPROVED", awardedPoints: pts }); sendBotChat(`💸 Ting ting! Đại gia <b>${email.split('@')[0]}</b> vừa bơm thêm <b>${pts}đ</b> vào tài khoản. Đạn đã lên nòng, anh em cẩn thận! 🔫`); } catch(e) { alert("Lỗi: " + e.message); } };
         window.rejectTopUp = async (reqId) => { if(confirm("Từ chối nạp điểm?")) await updateDoc(doc(db, "topups", reqId), { status: "REJECTED" }); };
 
         window.createTournament = async () => { const tName = document.getElementById('tournamentName').value.trim(); if(!tName) return alert("Nhập tên!"); try { await addDoc(collection(db, "tournaments"), { name: tName, createdAt: new Date() }); document.getElementById('tournamentName').value = ''; alert("Tạo Giải xong!"); } catch (e) { alert(e.message); } };
@@ -178,7 +178,7 @@
                         const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if (uSnap.exists()) { 
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + 50).toFixed(2)) }); 
                         } 
                     } 
                     await deleteDoc(doc(db, "bets", d.id)); 
@@ -203,7 +203,7 @@
                         const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if (uSnap.exists()) { 
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + 50).toFixed(2)) }); 
                         } 
                     } 
                     await deleteDoc(doc(db, "bets", d.id)); 
@@ -258,7 +258,7 @@
                             let updateData = { missedMatches: newMissed, consecutiveMisses: newConsecutive };
                             if (newConsecutive >= 2) {
                                 let penalty = newConsecutive * 10;
-                                updateData[`tournamentPoints.${tourId}`] = (uData.tournamentPoints[tourId] || 0) - penalty;
+                                updateData[`tournamentPoints.${tourId}`] = Number(((uData.tournamentPoints[tourId] || 0) - penalty).toFixed(2));
                                 let uName = uData.displayName || (uData.email ? uData.email.split('@')[0] : "Khách");
                                 penalizedUsers.push(`- <b>${uName}</b>: Bỏ ${newConsecutive} trận (Phạt -${penalty}đ)`);
                                 await addDoc(collection(db, "bets"), { userId: uId, userEmail: uData.email || "", matchId: matchId, matchName: matchNameStr, tournamentId: tourId, selectedTeam: "❌ BỎ CƯỢC", points: 0, status: "PENALTY", earnedInfo: `-${penalty}đ`, penaltyAmount: penalty, matchSummary: `Phạt nguội do bỏ cược ${newConsecutive} trận liên tiếp`, timestamp: new Date() });
@@ -279,19 +279,19 @@
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()) {
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + 50).toFixed(2)) }); 
                         }
                         await updateDoc(betRef, { status: "REFUND", earnedInfo: `+50đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai thắng. Hoàn tiền.`, tournamentId: tourId }); 
                     }
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} người chơi.`);
                     if(dsThua.length > 0) sendBotChat(`🏁 <b>KẾT QUẢ KÈO: ${matchNameStr} (Tỷ số ${score})</b><br>Ối dồi ôi! Cửa <b>${winningTeam}</b> vắng như chùa Bà Đanh. Trọng tài đã hoàn lại 50đ cho <b>${formatNames(tenThua)}</b> đi làm bát phở an ủi! 🍜`);
                 } else {
-                    const soThua = dsThua.length; const diemNhan = 50 + Math.round(soThua * 50 / dsThang.length); 
+                    const soThua = dsThua.length; const diemNhan = Number((50 + (soThua * 50 / dsThang.length)).toFixed(2)); 
                     for (let d of dsThang) { 
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()){
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + diemNhan }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + diemNhan).toFixed(2)) }); 
                         }
                         await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Thắng: ${dsThang.length} | Thua: ${soThua}`, tournamentId: tourId }); 
                     }
@@ -317,7 +317,7 @@
                     if (betData.status === "PENALTY") {
                         if (uSnap.exists()) {
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.penaltyAmount || 0) });
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts + (betData.penaltyAmount || 0)).toFixed(2)) });
                         }
                         await deleteDoc(betRef);
                         continue;
@@ -326,8 +326,8 @@
                     betUserIds.push(betData.userId);
                     if (uSnap.exists()) {
                         let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
-                        if(isRefund && betData.status === "REFUND") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts - 50 }); } 
-                        else if(!isRefund && betData.status === "WIN") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts - pointsPerWinner }); } 
+                        if(isRefund && betData.status === "REFUND") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts - 50).toFixed(2)) }); } 
+                        else if(!isRefund && betData.status === "WIN") { await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: Number((currentPts - pointsPerWinner).toFixed(2)) }); } 
                     }
                     await updateDoc(betRef, { status: "PENDING", earnedInfo: "", matchSummary: "" }); 
                 }

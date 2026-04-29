@@ -226,7 +226,7 @@
 
         let currentTourPoints = currentUserDoc.tournamentPoints ? currentUserDoc.tournamentPoints[selectedTourId] : undefined;
         if (currentTourPoints === undefined) { pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Nạp điểm để Tham gia</button>`; btnTopUp.style.display = 'none'; document.getElementById('playerStats').style.setProperty('display', 'none', 'important'); } 
-        else { pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${currentTourPoints}</strong> đ`; btnTopUp.style.display = 'inline-block'; document.getElementById('playerStats').style.setProperty('display', 'flex', 'important'); }
+        else { pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${Number(currentTourPoints.toFixed(2))}</strong> đ`; btnTopUp.style.display = 'inline-block'; document.getElementById('playerStats').style.setProperty('display', 'flex', 'important'); }
 
         let filteredBets = allMyBets.filter(b => b.tournamentId === selectedTourId);
         historyList.innerHTML = filteredBets.length === 0 ? "<small class='text-muted'>Chưa cược.</small>" : ""; 
@@ -288,7 +288,7 @@
             </div></div></div>`;
         });
 
-        leaderboard.innerHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; rankedUsers.forEach(u => { let pts = u.tournamentPoints[selectedTourId]; let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `<span class="text-muted small">#${rank}</span>`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "bg-primary-subtle rounded px-1" : ""; const ava = getAvatar(nameDisplay); leaderboard.innerHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><div class="d-flex align-items-center gap-2"><span style="width:20px; text-align:center;">${medal}</span><div style="transform: scale(0.85); margin-left:-5px;">${ava}</div><span class="truncate-text fw-bold text-dark" style="font-size:0.9rem;">${nameDisplay}</span></div><strong class="text-success">${pts}đ</strong></div>`; rank++; });
+        leaderboard.innerHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; rankedUsers.forEach(u => { let pts = u.tournamentPoints[selectedTourId]; let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `<span class="text-muted small">#${rank}</span>`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "bg-primary-subtle rounded px-1" : ""; const ava = getAvatar(nameDisplay); leaderboard.innerHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><div class="d-flex align-items-center gap-2"><span style="width:20px; text-align:center;">${medal}</span><div style="transform: scale(0.85); margin-left:-5px;">${ava}</div><span class="truncate-text fw-bold text-dark" style="font-size:0.9rem;">${nameDisplay}</span></div><strong class="text-success">${Number(pts.toFixed(2))}đ</strong></div>`; rank++; });
     };
 
     // --- LOGIC CHAT (BONG BÓNG MESSENGER + BỘ LỌC RÁC) ---
@@ -598,7 +598,7 @@
         if(btnElement) { btnElement.disabled = true; btnElement.innerHTML = "Đang chốt... ⏳"; }
         
         try { 
-            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50 }); 
+            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: Number((currentPoints - 50).toFixed(2)) }); 
             await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
             
             const botPhrases = [
