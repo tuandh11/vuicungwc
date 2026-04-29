@@ -286,7 +286,7 @@
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} người chơi.`);
                     if(dsThua.length > 0) sendBotChat(`🏁 <b>KẾT QUẢ KÈO: ${matchNameStr} (Tỷ số ${score})</b><br>Ối dồi ôi! Cửa <b>${winningTeam}</b> vắng như chùa Bà Đanh. Trọng tài đã hoàn lại 50đ cho <b>${formatNames(tenThua)}</b> đi làm bát phở an ủi! 🍜`);
                 } else {
-                    const soThua = dsThua.length; const diemNhan = 50 + (soThua * 50 / dsThang.length); 
+                    const soThua = dsThua.length; const diemNhan = 50 + Math.round(soThua * 50 / dsThang.length); 
                     for (let d of dsThang) { 
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()){
