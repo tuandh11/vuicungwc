@@ -435,10 +435,32 @@
                         const safeUserName = chat.userName || "Khách";
                         
                         let formattedMsg = chat.message || "";
-                        formattedMsg = formattedMsg.replace(/@all\b/gi, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @all</strong>`);
+                        
+                        // 1. Lưu @all và tên mình bằng token tạm để tránh bị ghi đè
+                        formattedMsg = formattedMsg.replace(/@all\b/gi, `%%%ALL_MENTION%%%`);
                         if (myName) {
                             const safeName = myName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                            formattedMsg = formattedMsg.replace(new RegExp(`@${safeName}`, 'gi'), `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${myName}</strong>`);
+                            formattedMsg = formattedMsg.replace(new RegExp(`@${safeName}(?![\\w\\p{L}])`, 'giu'), `%%%MY_MENTION%%%`);
+                        }
+
+                        // 2. In đậm các user khác nếu được tag
+                        const sortedUsers = [...allUsersData].sort((a, b) => {
+                            const nameA = a.displayName || a.email.split('@')[0];
+                            const nameB = b.displayName || b.email.split('@')[0];
+                            return nameB.length - nameA.length;
+                        });
+                        sortedUsers.forEach(u => {
+                            const uName = u.displayName || u.email.split('@')[0];
+                            if (uName !== myName) {
+                                const safeUName = uName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                formattedMsg = formattedMsg.replace(new RegExp(`@${safeUName}(?![\\w\\p{L}])`, 'giu'), `<strong class="text-primary fw-bold">@${uName}</strong>`);
+                            }
+                        });
+
+                        // 3. Phục hồi token hiển thị
+                        formattedMsg = formattedMsg.replace(/%%%ALL_MENTION%%%/g, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @all</strong>`);
+                        if (myName) {
+                            formattedMsg = formattedMsg.replace(/%%%MY_MENTION%%%/g, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${myName}</strong>`);
                         }
                         
                         let reactionsHtml = '';
