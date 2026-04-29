@@ -21,6 +21,11 @@
         .vs-badge { background: linear-gradient(45deg, #ff416c, #ff4b2b); color: white; padding: 2px 12px; border-radius: 12px; font-size: 0.85rem; font-weight: bold; box-shadow: 0 2px 5px rgba(255,65,108,0.3); }
         .app-title { background: -webkit-linear-gradient(45deg, #0052D4, #4364F7, #6FB1FC); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .btn-pill { border-radius: 50px; }
+        .suggestion-item:hover { background-color: #f0f8ff; }
+        .quick-actions { opacity: 0; transition: opacity 0.2s ease-in-out; display: flex; gap: 8px; align-items: center; padding: 0 5px; }
+        .msg-container:hover .quick-actions { opacity: 1; }
+        .quick-actions span { cursor: pointer; font-size: 1.1rem; transition: transform 0.1s, filter 0.2s; filter: grayscale(100%) opacity(70%); }
+        .quick-actions span:hover { transform: scale(1.2); filter: grayscale(0%) opacity(100%); }
     </style>
 </head>
 <body>
@@ -298,20 +303,6 @@
     };
     window.addEmoji = (emoji) => { const input = document.getElementById('chatInput'); input.value += emoji; input.focus(); };
 
-    // --- LOGIC TOGGLE MENU CẢM XÚC ---
-    window.toggleReactMenu = (e, msgId) => {
-        if(e) e.stopPropagation();
-        const menu = document.getElementById(`reactMenu_${msgId}`);
-        const isShowing = menu.classList.contains('show');
-        document.querySelectorAll('.react-menu-popup').forEach(el => el.classList.remove('show'));
-        if (!isShowing && menu) menu.classList.add('show');
-    };
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.reaction-trigger-container')) {
-            document.querySelectorAll('.react-menu-popup').forEach(el => el.classList.remove('show'));
-        }
-    });
-
     // --- LOGIC MENTION & REPLY ---
     window.handleChatInput = (e) => {
         const val = e.target.value; const cursorPosition = e.target.selectionStart;
@@ -342,20 +333,6 @@
         const cleanText = text.replace(/<[^>]*>?/gm, '').trim();
         const shortText = cleanText.length > 20 ? cleanText.substring(0, 20) + '...' : cleanText;
         input.value = `@${name} (trả lời: "${shortText}") - ` + input.value; input.focus();
-    };
-    window.reactToMessage = async (msgId, emoji) => {
-        if (!currentUserDoc) return;
-        try {
-            const msgRef = doc(db, "chats", msgId); const msgSnap = await getDoc(msgRef);
-            if (msgSnap.exists()) {
-                let data = msgSnap.data(); let reactions = data.reactions || {};
-                if (!reactions[emoji]) reactions[emoji] = [];
-                const uid = currentUserDoc.uid;
-                if (reactions[emoji].includes(uid)) reactions[emoji] = reactions[emoji].filter(id => id !== uid);
-                else reactions[emoji].push(uid);
-                await updateDoc(msgRef, { reactions });
-            }
-        } catch(e) { console.error("Lỗi react:", e); }
     };
     window.handleChatKeyPress = (e) => { if (e.key === 'Enter') sendChatMessage(); };
     function scrollToBottom() { const container = document.getElementById('chatMessages'); container.scrollTop = container.scrollHeight; }
@@ -461,40 +438,8 @@
                             formattedMsg = formattedMsg.replace(/%%%MY_MENTION%%%/g, `<strong class="text-danger bg-warning-subtle px-1 border border-warning rounded shadow-sm">🔔 @${myName}</strong>`);
                         }
                         
-                        let reactionsHtml = '';
-                        let hasReactions = false;
-                        if (chat.reactions) {
-                            const emojisList = ['👍', '❤️', '😂', '😲', '😢', '😡'];
-                            emojisList.forEach(e => {
-                                if (chat.reactions[e] && chat.reactions[e].length > 0) {
-                                    hasReactions = true;
-                                    const count = chat.reactions[e].length;
-                                    const hasReacted = chat.reactions[e].includes(user.uid) ? 'bg-primary-subtle border-primary' : 'bg-light border';
-                                    reactionsHtml += `<span class="badge ${hasReacted} text-dark p-1 me-1 shadow-sm" style="cursor:pointer; font-size:0.7rem;" onclick="reactToMessage('${docSnap.id}', '${e}')">${e} <span class="text-muted small">${count}</span></span>`;
-                                }
-                            });
-                        }
-
                         const escapedText = (chat.message || "").replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/[\r\n]+/g, ' ');
                         const safeUserNameEscaped = safeUserName.replace(/'/g, "\\'");
-
-                        let reactionSection = `
-                            <div class="d-flex align-items-center gap-1 mt-1 reaction-list-wrapper" style="min-height: 18px;">
-                                ${reactionsHtml}
-                                <div class="reaction-trigger-container" style="position: relative;">
-                                    <span class="reaction-trigger badge bg-light text-muted border shadow-sm rounded-pill" onclick="toggleReactMenu(event, '${docSnap.id}')" style="${hasReactions ? 'opacity:0; padding: 1px 5px;' : 'opacity:0.5; padding: 2px 6px;'} cursor: pointer;">
-                                        ${hasReactions ? '+' : '👍'}
-                                    </span>
-                                    <div id="reactMenu_${docSnap.id}" class="react-menu-popup" style="${chat.userId === user.uid ? 'right: 0;' : 'left: 0;'}">
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '👍'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">👍</span>
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '❤️'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">❤️</span>
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '😂'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">😂</span>
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '😲'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">😲</span>
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '😢'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">😢</span>
-                                        <span class="emoji-picker-btn" onclick="reactToMessage('${docSnap.id}', '😡'); document.getElementById('reactMenu_${docSnap.id}').classList.remove('show')">😡</span>
-                                    </div>
-                                </div>
-                            </div>`;
 
                         if (chat.userId === "SYSTEM_BOT") {
                             container.innerHTML += `
@@ -516,7 +461,6 @@
                                                 ${formattedMsg}
                                             </div>
                                         </div>
-                                        ${reactionSection}
                                         <div class="text-end text-muted" style="font-size: 0.65rem;">${timeStr}</div>
                                     </div>
                                 </div>`;
@@ -535,7 +479,6 @@
                                                 <span title="Trả lời" onclick="replyToMessage('${safeUserNameEscaped}', '${escapedText}')">↩️</span>
                                             </div>
                                         </div>
-                                        ${reactionSection}
                                         <div class="text-start text-muted mt-1" style="font-size: 0.65rem; margin-left: 2px;">${timeStr}</div>
                                     </div>
                                 </div>`;
