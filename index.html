@@ -601,24 +601,54 @@
             await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: Number((currentPoints - 50).toFixed(2)) }); 
             await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
             
-            const botPhrases = [
-                `vừa rải 50 cành vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Anh em theo hay ngược? 😎`,
-                `đã lên thuyền <b>${selectedTeam}</b>. Sóng to gió lớn đừng vội quay xe! ⛵`,
-                `nhắm mắt đưa chân, gửi gắm 50đ cho <b>${selectedTeam}</b> kèo ${matchName}. Mong cô thương! 🙏`,
-                `tin lời thầy bói, xuống xác <b>${selectedTeam}</b> trận ${matchName}. Sai thì do bói! 🔮`,
-                `vừa gáy to chốt cửa <b>${selectedTeam}</b>. Ngã ở đâu gấp đôi ở đó! 💸`,
-                `mới ủng hộ <b>${selectedTeam}</b> 50đ lấy thảo. Cổ vũ nhiệt tình lên! 📣`,
-                `chính thức all-in 50đ vào <b>${selectedTeam}</b>. Kèo này bao sáng! 🌟`
-            ];
-            const randomMsg = botPhrases[Math.floor(Math.random() * botPhrases.length)];
             const playerName = currentUserDoc.displayName || currentUserDoc.email.split('@')[0];
             
-            await addDoc(collection(db, "chats"), {
-                userId: "SYSTEM_BOT",
-                userName: "🤖 Trọng Tài Báo Kèo",
-                message: `📢 Biến căng: <b>${playerName}</b> ${randomMsg}`,
-                timestamp: new Date()
-            });
+            // Lấy thông số W/L hiện tại trên giao diện để mớm cho Gemini khịa
+            const currentWin = document.getElementById('statWin').innerText || "0";
+            const currentLose = document.getElementById('statLose').innerText || "0";
+            
+            // Chạy ngầm AI Generate để không làm đơ giao diện bấm cược của người dùng
+            (async () => {
+                try {
+                    const GEMINI_API_KEY = "AIzaSyAh6cx5ehJtKt9NBmigEJUiFQDNdt_NDmE"; // TODO: Điền Gemini API Key của bạn vào đây
+                    const prompt = `Bạn là một bình luận viên cá cược bóng đá siêu bựa, chuyên nói móc và cà khịa. Một người chơi tên "${playerName}" vừa chốt kèo 50 điểm vào cửa "${selectedTeam}" trận "${matchName}". Dữ liệu quá khứ của người này là thắng ${currentWin} trận, thua ${currentLose} trận. Dựa vào tỉ lệ thắng thua này, hãy sáng tác 1 câu thông báo thật hài hước, mang tính chất trêu chọc để báo cho cả nhóm chat biết. Câu thông báo phải RẤT NGẮN (dưới 25 chữ), có dùng biểu tượng cảm xúc. Hãy trả về trực tiếp nội dung câu nói (Ví dụ: "Thánh nhọ ${playerName} vừa cúng 50đ cho ${selectedTeam}...", tuyệt đối KHÔNG có dấu ngoặc kép ở hai đầu.`;
+                    
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: prompt }] }],
+                            generationConfig: { temperature: 0.9, maxOutputTokens: 100 } // Nhiệt độ 0.9 để AI sáng tạo hơn
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    let aiMessage = data.candidates[0].content.parts[0].text.trim();
+                    
+                    await addDoc(collection(db, "chats"), {
+                        userId: "SYSTEM_BOT",
+                        userName: "🤖 Trọng Tài Báo Kèo",
+                        message: `📢 <b>VAR:</b> ${aiMessage}`,
+                        timestamp: new Date()
+                    });
+                } catch (error) {
+                    // FALLBACK: Đề phòng mạng lỗi, API hết hạn hoặc quá tải, vẫn có câu tĩnh mặn mòi vớt vát lại
+                    const botPhrases = [
+                        `vừa rải 50 cành vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Anh em theo hay ngược? 😎`,
+                        `nhắm mắt đưa chân, gửi gắm 50đ cho <b>${selectedTeam}</b> kèo ${matchName}. Mong cô thương! 🙏`,
+                        `tin lời thầy bói, xuống xác <b>${selectedTeam}</b> trận ${matchName}. Sai thì do bói! 🔮`,
+                        `vừa gáy to chốt cửa <b>${selectedTeam}</b>. Ngã ở đâu gấp đôi ở đó! 💸`
+                    ];
+                    const randomMsg = botPhrases[Math.floor(Math.random() * botPhrases.length)];
+                    
+                    await addDoc(collection(db, "chats"), {
+                        userId: "SYSTEM_BOT",
+                        userName: "🤖 Trọng Tài Báo Kèo",
+                        message: `📢 Biến căng: <b>${playerName}</b> ${randomMsg}`,
+                        timestamp: new Date()
+                    });
+                }
+            })();
 
             alert("Chốt kèo thành công! Hãy vào khung chat xem thông báo."); 
             if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: 50 }), headers: { 'Content-Type': 'application/json' } }); 
