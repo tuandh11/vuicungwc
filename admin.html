@@ -153,7 +153,7 @@
         window.rejectTopUp = async (reqId) => { if(confirm("Từ chối nạp điểm?")) await updateDoc(doc(db, "topups", reqId), { status: "REJECTED" }); };
 
         window.createTournament = async () => { const tName = document.getElementById('tournamentName').value.trim(); if(!tName) return alert("Nhập tên!"); try { await addDoc(collection(db, "tournaments"), { name: tName, createdAt: new Date() }); document.getElementById('tournamentName').value = ''; alert("Tạo Giải xong!"); } catch (e) { alert(e.message); } };
-        onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('matchTournament'); const listDiv = document.getElementById('tournamentList'); selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; listDiv.innerHTML = ''; snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; }); });
+        onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('matchTournament'); const statSelectBox = document.getElementById('statTournamentSelect'); const listDiv = document.getElementById('tournamentList'); selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; if(statSelectBox) statSelectBox.innerHTML = '<option value="">-- Chọn Giải Đấu để xem --</option>'; listDiv.innerHTML = ''; snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; if(statSelectBox) statSelectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; }); });
 
         window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime + "+07:00").getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo trận thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>KÈO MỚI: ${tA} vs ${tB}</b> đã lên sàn! (Kèo: ${hc}). Anh em vào soi và chốt lẹ trước khi khóa sổ nha! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
 
@@ -353,6 +353,29 @@
                 await updateDoc(doc(db, "matches", matchId), { status: "OPEN", winner: "", finalScore: "", summary: null }); alert("Đã hoàn tác!");
                 sendBotChat(`🚨 <b>CHECK VAR TRẬN ${matchData.teamA} vs ${matchData.teamB}</b>! Trọng tài vừa quay xe hủy kết quả để tính lại. Xin phép thu hồi tiền thưởng của anh em, bình tĩnh chờ chốt lại nhé! 🤡🔙`);
             } catch (error) { alert("Lỗi: " + error.message); }
+        };
+
+        window.renderTournamentStats = async () => {
+            const tourId = document.getElementById('statTournamentSelect').value;
+            const list = document.getElementById('tournamentStatsList');
+            if (!tourId) { list.innerHTML = ""; return; }
+            list.innerHTML = "<p class='text-muted small'>Đang tải dữ liệu...</p>";
+            try {
+                const topupsSnap = await getDocs(query(collection(db, "topups"), where("tournamentId", "==", tourId), where("status", "==", "APPROVED")));
+                let topupsSum = {};
+                topupsSnap.forEach(d => { const data = d.data(); if (!topupsSum[data.userId]) topupsSum[data.userId] = 0; topupsSum[data.userId] += (data.awardedPoints || 0); });
+                const usersSnap = await getDocs(collection(db, "users"));
+                let stats = []; let totalToppedUp = 0; let totalBalance = 0;
+                usersSnap.forEach(u => {
+                    const uData = u.data(); const toppedUp = topupsSum[u.id] || 0; const balance = uData.tournamentPoints && uData.tournamentPoints[tourId] !== undefined ? uData.tournamentPoints[tourId] : 0;
+                    if (toppedUp > 0 || balance !== 0) { stats.push({ name: uData.displayName || uData.email.split('@')[0], email: uData.email, toppedUp: toppedUp, balance: balance }); totalToppedUp += toppedUp; totalBalance += balance; }
+                });
+                stats.sort((a, b) => b.balance - a.balance);
+                let html = `<div class="table-responsive"><table class="table table-bordered table-sm align-middle"><thead class="table-light"><tr><th>Người chơi</th><th class="text-end">Tổng Đã Nạp</th><th class="text-end">Số dư Giải</th></tr></thead><tbody>`;
+                stats.forEach(s => { html += `<tr><td><strong>${s.name}</strong><br><small class="text-muted">${s.email}</small></td><td class="text-end text-success fw-bold">${s.toppedUp}</td><td class="text-end text-primary fw-bold">${Number(s.balance.toFixed(2))}</td></tr>`; });
+                html += `<tr class="table-warning fw-bold"><td>TỔNG CỘNG</td><td class="text-end text-success">${totalToppedUp}</td><td class="text-end text-primary">${Number(totalBalance.toFixed(2))}</td></tr></tbody></table></div>`;
+                list.innerHTML = html;
+            } catch (e) { list.innerHTML = `<div class="alert alert-danger">Lỗi: ${e.message}</div>`; }
         };
     </script>
 </body>
