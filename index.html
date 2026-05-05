@@ -19,7 +19,6 @@
 <body>
 
 <div class="container py-5">
-    <!-- Khu vực Đăng nhập -->
     <div id="authSection" class="row justify-content-center">
         <div class="col-md-5">
             <div class="card bet-card p-4">
@@ -36,7 +35,6 @@
         </div>
     </div>
 
-    <!-- Khu vực Chính sau khi đăng nhập -->
     <div id="mainSection" style="display: none;">
         <div id="changePassSection" class="card bet-card p-3 mb-4 border-warning" style="display: none; background-color: #fffdf5;">
             <div class="d-flex justify-content-between"><h6 class="text-warning fw-bold">Đổi mật khẩu</h6><button onclick="document.getElementById('changePassSection').style.display='none'" class="btn-close btn-sm"></button></div>
@@ -49,6 +47,7 @@
                     <h5>Chào, <span id="displayName" class="text-success fw-bold">...</span></h5>
                     <div class="d-flex align-items-center gap-2 mt-2">
                         <span>Quỹ điểm của bạn: </span>
+                        <!-- Vị trí Hũ điểm hiện tại trên Header sẽ được đổ dữ liệu vào đây -->
                         <span id="pointsDisplay" class="fs-4 text-primary fw-bold">0</span>
                         <button onclick="openTopUpModal(false)" id="btnTopUp" class="btn btn-sm btn-success fw-bold ms-2" style="display:none;">💰 Xin cấp điểm</button>
                     </div>
@@ -89,7 +88,6 @@
 
         <div class="card bet-card p-3 mb-4 border-primary" style="background-color: #eef7ff;">
             <label class="fw-bold text-primary mb-2">🌍 Chọn Giải Đấu để tham gia:</label>
-            <!-- Gọi hàm resetHistoryLimit thay vì renderFilteredData trực tiếp để đặt lại giới hạn 5 dòng -->
             <select id="userTournamentSelect" class="form-select border-primary fw-bold" onchange="resetHistoryLimit()">
                 <option value="ALL">-- Chọn một giải đấu bên dưới --</option>
             </select>
@@ -102,7 +100,6 @@
             </div>
             <div class="col-lg-3 col-md-6 mb-4">
                 <h5 class="mb-3 fw-bold text-secondary">Lịch sử Dự đoán</h5>
-                <!-- Vùng chứa lịch sử sẽ được điều khiển bởi Javascript -->
                 <div class="card bet-card p-3"><div id="myHistoryList"></div></div>
             </div>
             <div class="col-lg-3 col-md-6 mb-4">
@@ -150,25 +147,13 @@
 
     const firebaseConfig = { apiKey: "AIzaSyDPBXK4t4ex8oBpe3x9a8m80jf5CZLrVH0", authDomain: "worldcup26-896ac.firebaseapp.com", projectId: "worldcup26-896ac", storageBucket: "worldcup26-896ac.firebasestorage.app", messagingSenderId: "1070038920983", appId: "1:1070038920983:web:f107f8e2fa2a5a79725152" };
     const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
-    // Link API kết nối đến Google Sheets
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwJCrULWQiHPmjsnXtCvQ29EIfONkKTD0T5_Lyu2awhOWuJ846-PoZo8stZDu9yDJHD/exec";
 
     let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = [];
-    
-    // Giới hạn số lượng dòng lịch sử hiển thị ban đầu
     window.historyLimit = 5;
 
-    // Reset lại giới hạn về 5 khi người dùng đổi giải đấu khác
-    window.resetHistoryLimit = () => {
-        window.historyLimit = 5;
-        window.renderFilteredData();
-    };
-
-    // Cộng thêm 5 dòng khi người dùng bấm "Xem thêm"
-    window.loadMoreHistory = () => {
-        window.historyLimit += 5;
-        window.renderFilteredData();
-    };
+    window.resetHistoryLimit = () => { window.historyLimit = 5; window.renderFilteredData(); };
+    window.loadMoreHistory = () => { window.historyLimit += 5; window.renderFilteredData(); };
 
     window.handleLogin = async () => { const email = document.getElementById('email').value.trim(), pass = document.getElementById('password').value, msg = document.getElementById('authMsg'); if(!email || !pass) return msg.innerText = "Vui lòng nhập đủ thông tin!"; try { msg.innerText = "Đang kết nối..."; await signInWithEmailAndPassword(auth, email, pass); } catch (e) { msg.innerText = "Lỗi: Sai email hoặc mật khẩu!"; } };
     window.handleForgotPassword = async () => { const email = document.getElementById('email').value.trim(); if(!email) return alert("Nhập Email vào ô đăng nhập rồi bấm Quên Mật Khẩu!"); try { await sendPasswordResetEmail(auth, email); alert("Đã gửi link đặt lại mật khẩu vào Email!"); } catch(e) { alert("Lỗi: " + e.message); } };
@@ -189,38 +174,34 @@
         }
 
         let currentTourPoints = currentUserDoc.tournamentPoints ? currentUserDoc.tournamentPoints[selectedTourId] : undefined;
-        if (currentTourPoints === undefined) { pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Xin cấp điểm tham gia</button>`; btnTopUp.style.display = 'none'; } 
-        else { pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${currentTourPoints}</strong> đ`; btnTopUp.style.display = 'inline-block'; }
+        if (currentTourPoints === undefined) { 
+            pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Xin cấp điểm tham gia</button>`; btnTopUp.style.display = 'none'; 
+        } 
+        else { 
+            // GIẢI THÍCH LÀM TRÒN 1: Ép Hũ điểm cá nhân trên Header chỉ hiện tối đa 2 chữ số thập phân
+            const formattedCurrentPts = parseFloat(Number(currentTourPoints).toFixed(2));
+            pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${formattedCurrentPts}</strong> đ`; btnTopUp.style.display = 'inline-block'; 
+        }
 
-        // Trích xuất lịch sử thuộc về giải đấu hiện tại
         let filteredBets = allMyBets.filter(b => b.tournamentId === selectedTourId);
-        
-        // Sắp xếp các lịch sử giảm dần dựa trên giá trị thời gian (timestamp)
         filteredBets.sort((a, b) => {
             let timeA = a.timestamp && typeof a.timestamp.toMillis === 'function' ? a.timestamp.toMillis() : (a.timestamp instanceof Date ? a.timestamp.getTime() : 0);
             let timeB = b.timestamp && typeof b.timestamp.toMillis === 'function' ? b.timestamp.toMillis() : (b.timestamp instanceof Date ? b.timestamp.getTime() : 0);
             return timeB - timeA;
         });
 
-        // Cắt mảng để chỉ giữ lại số lượng phần tử bằng với giới hạn window.historyLimit
         let visibleBets = filteredBets.slice(0, window.historyLimit);
 
         historyList.innerHTML = filteredBets.length === 0 ? "<small class='text-muted'>Chưa có dữ liệu.</small>" : ""; 
         let myBetMatchIds = [];
-        
-        // Vẫn duyệt mảng gốc để lưu lại danh sách các ID trận đã thao tác
-        filteredBets.forEach((bet) => {
-            myBetMatchIds.push(bet.matchId);
-        });
+        filteredBets.forEach((bet) => { myBetMatchIds.push(bet.matchId); });
 
-        // Lặp mảng đã cắt gọn để hiển thị cấu trúc HTML ra màn hình
         visibleBets.forEach((bet) => {
             let statusBadge = bet.status === "WIN" ? `<span class="badge bg-success">Chính xác (${bet.earnedInfo})</span>` : (bet.status === "LOSE" ? `<span class="badge bg-danger">Chưa chính xác (${bet.earnedInfo})</span>` : (bet.status === "REFUND" ? `<span class="badge bg-info text-dark">Hoàn điểm (${bet.earnedInfo})</span>` : `<span class="badge bg-warning text-dark">Đang chờ</span>`));
             let summary = bet.matchSummary ? `<div class="text-muted mt-1" style="font-size:0.75rem;">${bet.matchSummary}</div>` : '';
             historyList.innerHTML += `<div class="border-bottom py-2"><strong>${bet.matchName}</strong><br><small>Đã chọn: ${bet.selectedTeam}</small> <br> ${statusBadge} ${summary}</div>`;
         });
 
-        // Bổ sung nút bấm "Xem thêm..." khi lượng dữ liệu lớn hơn số lượng đang vẽ
         if (filteredBets.length > window.historyLimit) {
             historyList.innerHTML += `<div class="text-center mt-2"><button onclick="loadMoreHistory()" class="btn btn-sm btn-outline-secondary fw-bold" style="font-size:0.75rem;">Xem thêm...</button></div>`;
         }
@@ -244,7 +225,15 @@
             </div></div></div>`;
         });
 
-        leaderboard.innerHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; rankedUsers.forEach(u => { let pts = u.tournamentPoints[selectedTourId]; let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `#${rank}`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "fw-bold text-primary" : ""; leaderboard.innerHTML += `<div class="d-flex justify-content-between border-bottom py-2 ${myHighlight}"><span class="truncate-text">${medal} ${nameDisplay}</span><strong class="text-success">${pts}đ</strong></div>`; rank++; });
+        // GIẢI THÍCH LÀM TRÒN 2: Bảng Xếp hạng
+        leaderboard.innerHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; 
+        rankedUsers.forEach(u => { 
+            // Cắt điểm trên bảng xếp hạng chỉ lấy tối đa 2 chữ số lẻ
+            let pts = parseFloat(Number(u.tournamentPoints[selectedTourId]).toFixed(2)); 
+            let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `#${rank}`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "fw-bold text-primary" : ""; 
+            leaderboard.innerHTML += `<div class="d-flex justify-content-between border-bottom py-2 ${myHighlight}"><span class="truncate-text">${medal} ${nameDisplay}</span><strong class="text-success">${pts}đ</strong></div>`; 
+            rank++; 
+        });
     };
 
     let chatListener = null; 
@@ -269,7 +258,6 @@
                     currentUserDoc = { uid: user.uid, ...docSnap.data() }; 
                     document.getElementById('displayName').innerText = currentUserDoc.displayName || user.email.split('@')[0];
                     if(currentUserDoc.role === "admin") document.getElementById('btnGoAdmin').style.display = 'inline-block'; 
-                    // Gọi hàm xây dựng giao diện khi thông tin user có thay đổi
                     renderFilteredData(); 
                 }
             });
@@ -301,7 +289,6 @@
             onSnapshot(query(collection(db, "topups"), where("userId", "==", user.uid)), (snapshot) => { const list = document.getElementById('topUpStatusList'); list.innerHTML = ""; snapshot.forEach(doc => { const t = doc.data(); let badge = t.status === "PENDING" ? `<span class="badge bg-warning text-dark">Chờ duyệt</span>` : (t.status === "APPROVED" ? `<span class="badge bg-success">+${t.awardedPoints}đ</span>` : `<span class="badge bg-danger">Từ chối</span>`); list.innerHTML += `<div class="small text-muted border-bottom py-1">${t.tournamentName}: ${badge}</div>`; }); });
             onSnapshot(query(collection(db, "bets"), where("userId", "==", user.uid)), (snapshot) => { 
                 allMyBets = []; snapshot.forEach(doc => allMyBets.push({ id: doc.id, ...doc.data() })); 
-                // Cập nhật lại giao diện sau khi mảng lịch sử nhận thêm mục mới
                 renderFilteredData(); 
             });
             onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => { allOpenMatches = []; snapshot.forEach(doc => allOpenMatches.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
@@ -316,7 +303,6 @@
         
         try { 
             await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50 }); 
-            // Khi tạo tài liệu mới, Firestore sẽ tự cung cấp mốc timestamp theo hệ thống máy chủ
             await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
             
             const botPhrases = [
@@ -330,8 +316,6 @@
             
             await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: `📢 Tin nóng: <b>${playerName}</b> ${randomMsg}`, timestamp: new Date() });
             alert("Gửi dự đoán thành công!"); 
-            
-            // Xúc tiến yêu cầu HTTP POST để truyền điểm và đội lựa chọn về Google Apps Script
             if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: 50 }), headers: { 'Content-Type': 'application/json' } }); 
         } catch (e) { alert("Lỗi hệ thống!"); } 
     };
