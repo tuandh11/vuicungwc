@@ -110,10 +110,7 @@
         const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
         const secondaryApp = initializeApp(firebaseConfig, "Secondary"); const secondaryAuth = getAuth(secondaryApp);
 
-        // --- KHAI BÁO BIẾN DỮ LIỆU ĐỂ LÀM THỐNG KÊ ---
-        let allUsersData = []; 
-        let allApprovedTopups = []; 
-
+        let allUsersData = []; let allApprovedTopups = []; 
         const sendBotChat = async (msg) => { try { await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: msg, timestamp: new Date() }); } catch(e) {} };
         const formatNames = (names) => { if(!names || names.length === 0) return ""; return names.length <= 5 ? names.join(', ') : names.slice(0, 5).join(', ') + ` và ${names.length - 5} ae khác`; };
 
@@ -121,31 +118,23 @@
         
         window.createNewUser = async () => { const email = document.getElementById('newUserEmail').value.trim(); if(!email) return alert("Vui lòng nhập Email!"); try { const res = await createUserWithEmailAndPassword(secondaryAuth, email, "123456"); await setDoc(doc(db, "users", res.user.uid), { email: email, tournamentPoints: {}, role: "user" }); await signOut(secondaryAuth); alert("Thành công! Mật khẩu mặc định: 123456"); document.getElementById('newUserEmail').value = ''; } catch(e) { alert("Lỗi: " + e.message); } };
         
-        // 1. TẢI DỮ LIỆU THÀNH VIÊN VÀ LƯU VÀO BIẾN 'allUsersData'
         onSnapshot(collection(db, "users"), (snapshot) => {
-            const list = document.getElementById('adminUserList'); 
-            allUsersData = []; // Xóa danh sách cũ
-            
+            const list = document.getElementById('adminUserList'); allUsersData = []; 
             if (snapshot.empty) { list.innerHTML = "<p class='small text-muted'>Chưa có dữ liệu.</p>"; return; }
             let html = `<table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;"><thead class="table-light"><tr><th>Thành viên</th><th>Thao tác</th></tr></thead><tbody>`;
             snapshot.forEach(docSnap => { 
-                const u = docSnap.data(); 
-                allUsersData.push({ id: docSnap.id, ...u }); // Lưu vào bộ nhớ tạm
-                
+                const u = docSnap.data(); allUsersData.push({ id: docSnap.id, ...u }); 
                 const nameDisplay = u.displayName || u.email.split('@')[0]; const isMe = u.email === auth.currentUser.email; html += `<tr><td><strong class="${isMe ? 'text-danger' : 'text-primary'}">${nameDisplay}</strong>${u.role === 'admin' ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Admin</span>' : ''}<br><small class="text-muted">${u.email}</small></td><td><button onclick="changeUserName('${docSnap.id}', '${nameDisplay}')" class="btn btn-warning btn-sm fw-bold" style="font-size: 0.75rem;">✏️ Đổi tên</button></td></tr>`; 
             });
             html += `</tbody></table>`; list.innerHTML = html;
-            
-            if(typeof window.renderStats === 'function') window.renderStats(); // Tải lại bảng báo cáo
+            if(typeof window.renderStats === 'function') window.renderStats(); 
         });
 
         window.changeUserName = async (userId, currentName) => { let newName = prompt("Nhập TÊN THẬT hoặc BIỆT DANH cho thành viên này:", currentName); if(newName === null) return; newName = newName.trim(); if(newName === "") return alert("Tên không được trống!"); try { await updateDoc(doc(db, "users", userId), { displayName: newName }); } catch(e) { alert("Lỗi: " + e.message); } };
 
-        // 2. TẢI DỮ LIỆU LỊCH SỬ CẤP ĐIỂM (CHỈ LẤY LẦN ĐÃ DUYỆT) ĐỂ TÍNH TỔNG
         onSnapshot(query(collection(db, "topups"), where("status", "==", "APPROVED")), (snapshot) => {
-            allApprovedTopups = [];
-            snapshot.forEach(doc => allApprovedTopups.push({ id: doc.id, ...doc.data() }));
-            if(typeof window.renderStats === 'function') window.renderStats(); // Tải lại bảng báo cáo
+            allApprovedTopups = []; snapshot.forEach(doc => allApprovedTopups.push({ id: doc.id, ...doc.data() }));
+            if(typeof window.renderStats === 'function') window.renderStats(); 
         });
 
         onSnapshot(query(collection(db, "topups"), where("status", "==", "PENDING")), (snapshot) => { const list = document.getElementById('adminTopUpList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small mb-0'>Không có yêu cầu.</p>" : ""; snapshot.forEach((docSnap) => { const req = docSnap.data(); list.innerHTML += `<div class="border p-2 rounded bg-white mb-2 d-flex justify-content-between align-items-center"><div><strong>${req.userEmail.split('@')[0]}</strong> xin cấp điểm giải <span class="text-primary fw-bold">${req.tournamentName}</span></div><div class="d-flex gap-2 align-items-center"><input type="number" id="pts_${docSnap.id}" class="form-control form-control-sm border-success" style="width:80px;" placeholder="Điểm"><button onclick="approveTopUp('${docSnap.id}', '${req.userId}', '${req.tournamentId}', '${req.userEmail}')" class="btn btn-success btn-sm fw-bold">Duyệt</button><button onclick="rejectTopUp('${docSnap.id}')" class="btn btn-outline-danger btn-sm">Từ chối</button></div></div>`; }); });
@@ -156,20 +145,9 @@
         window.createTournament = async () => { const tName = document.getElementById('tournamentName').value.trim(); if(!tName) return alert("Nhập tên!"); try { await addDoc(collection(db, "tournaments"), { name: tName, createdAt: new Date() }); document.getElementById('tournamentName').value = ''; alert("Tạo Giải xong!"); } catch (e) { alert(e.message); } };
         
         onSnapshot(collection(db, "tournaments"), (snapshot) => { 
-            const selectBox = document.getElementById('matchTournament'); 
-            const listDiv = document.getElementById('tournamentList'); 
-            const statSelect = document.getElementById('statTournamentSelect'); // Khung chọn giải ở mục 5
-            
-            selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; 
-            listDiv.innerHTML = ''; 
-            if(statSelect) statSelect.innerHTML = '<option value="ALL">-- Chọn giải đấu để xem thống kê --</option>';
-            
-            snapshot.forEach(doc => { 
-                const t = doc.data(); 
-                selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; 
-                listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; 
-                if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; 
-            }); 
+            const selectBox = document.getElementById('matchTournament'); const listDiv = document.getElementById('tournamentList'); const statSelect = document.getElementById('statTournamentSelect'); 
+            selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; listDiv.innerHTML = ''; if(statSelect) statSelect.innerHTML = '<option value="ALL">-- Chọn giải đấu để xem thống kê --</option>';
+            snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; }); 
         });
 
         window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime).getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo thử thách thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! (Lợi thế: ${hc}). Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
@@ -277,7 +255,9 @@
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} thành viên.`);
                     if(dsThua.length > 0) sendBotChat(`🏁 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Rất tiếc! Đội <b>${winningTeam}</b> không có ai lựa chọn. Hệ thống đã tự động hoàn lại 50 điểm vốn cho <b>${formatNames(tenThua)}</b>. Chúc các bạn may mắn lần sau! 🎯`);
                 } else {
-                    const soThua = dsThua.length; const diemNhan = 50 + (soThua * 50 / dsThang.length); 
+                    const soThua = dsThua.length; 
+                    // GIẢI THÍCH LÀM TRÒN: Dùng parseFloat và toFixed(2) để đảm bảo số điểm thưởng luôn được cắt đúng 2 chữ số thập phân, không bị dài vô tận.
+                    const diemNhan = parseFloat((50 + (soThua * 50 / dsThang.length)).toFixed(2)); 
                     for (let d of dsThang) { 
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()){
@@ -314,62 +294,37 @@
             } catch (error) { alert("Lỗi: " + error.message); }
         };
 
-        // --- HÀM RENDER BẢNG THỐNG KÊ (PHẦN 5) ---
         window.renderStats = () => {
             const tourId = document.getElementById('statTournamentSelect').value;
             const container = document.getElementById('statsTableContainer');
-
             if (tourId === "ALL") { container.innerHTML = "<p class='text-muted small'>Vui lòng chọn 1 giải đấu cụ thể để xem báo cáo.</p>"; return; }
             if (allUsersData.length === 0) { container.innerHTML = "<p class='text-muted small'>Hệ thống đang tải dữ liệu...</p>"; return; }
 
-            // Bắt đầu vẽ bảng
-            let html = `<table class="table table-bordered table-hover align-middle small text-center mt-3">
-                            <thead class="table-success">
-                                <tr><th class="text-start">Thành viên</th><th>Đã cấp (Tổng)</th><th>Số dư hiện tại</th></tr>
-                            </thead><tbody>`;
+            let html = `<table class="table table-bordered table-hover align-middle small text-center mt-3"><thead class="table-success"><tr><th class="text-start">Thành viên</th><th>Đã cấp (Tổng)</th><th>Số dư hiện tại</th></tr></thead><tbody>`;
+            let hasData = false; let sumTopup = 0; let sumBalance = 0;
 
-            let hasData = false;
-            let sumTopup = 0;
-            let sumBalance = 0;
-
-            // Chạy qua từng người chơi
             allUsersData.forEach(u => {
-                // Tính tổng điểm đã duyệt cho người này ở giải được chọn
                 let topupsOfUser = allApprovedTopups.filter(t => t.userId === u.id && t.tournamentId === tourId);
                 let totalTopupUser = topupsOfUser.reduce((sum, current) => sum + current.awardedPoints, 0);
+                // Lấy số dư hiện hành (từ DB có thể chứa số lẻ dài)
+                let currentBalanceRaw = (u.tournamentPoints && u.tournamentPoints[tourId]) ? u.tournamentPoints[tourId] : 0;
+                // GIẢI THÍCH LÀM TRÒN: Cắt gọn số dư hiển thị ở bảng thống kê cho Admin dễ nhìn
+                let currentBalance = parseFloat(Number(currentBalanceRaw).toFixed(2));
 
-                // Lấy số dư hiện hành của giải đó
-                let currentBalance = (u.tournamentPoints && u.tournamentPoints[tourId]) ? u.tournamentPoints[tourId] : 0;
-
-                // Nếu người này có tham gia giải (từng nạp hoặc còn điểm) mới in ra
                 if (totalTopupUser > 0 || currentBalance > 0) {
-                    hasData = true;
-                    let nameDisplay = u.displayName || u.email.split('@')[0];
-                    html += `<tr>
-                                <td class="text-start fw-bold text-primary">${nameDisplay}</td>
-                                <td class="text-success fw-bold">+${totalTopupUser}</td>
-                                <td class="text-danger fw-bold">${currentBalance}</td>
-                             </tr>`;
-                    // Cộng dồn vào quỹ hệ thống
-                    sumTopup += totalTopupUser;
-                    sumBalance += currentBalance;
+                    hasData = true; let nameDisplay = u.displayName || u.email.split('@')[0];
+                    html += `<tr><td class="text-start fw-bold text-primary">${nameDisplay}</td><td class="text-success fw-bold">+${totalTopupUser}</td><td class="text-danger fw-bold">${currentBalance}</td></tr>`;
+                    sumTopup += totalTopupUser; sumBalance += currentBalance;
                 }
             });
 
             if (!hasData) { container.innerHTML = "<p class='text-muted small'>Chưa có thành viên nào nạp điểm cho giải đấu này.</p>"; return; }
+            // GIẢI THÍCH LÀM TRÒN: Tổng toàn hệ thống cũng cần cắt số lẻ
+            sumBalance = parseFloat(sumBalance.toFixed(2));
 
-            // Thêm dòng tổng cộng
-            html += `<tr class="table-light fw-bold" style="font-size:0.9rem;">
-                        <td class="text-start text-dark">TỔNG TOÀN HỆ THỐNG</td>
-                        <td class="text-success">+${sumTopup}</td>
-                        <td class="text-danger">${sumBalance}</td>
-                     </tr>`;
-            html += `</tbody></table>`;
-            
-            // Đổ HTML vào container
-            container.innerHTML = html;
+            html += `<tr class="table-light fw-bold" style="font-size:0.9rem;"><td class="text-start text-dark">TỔNG TOÀN HỆ THỐNG</td><td class="text-success">+${sumTopup}</td><td class="text-danger">${sumBalance}</td></tr>`;
+            html += `</tbody></table>`; container.innerHTML = html;
         };
-
     </script>
 </body>
 </html>
