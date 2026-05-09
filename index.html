@@ -146,7 +146,7 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, query, onSnapshot, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, updateDoc, collection, addDoc, query, onSnapshot, where, orderBy, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = { apiKey: "AIzaSyDPBXK4t4ex8oBpe3x9a8m80jf5CZLrVH0", authDomain: "worldcup26-896ac.firebaseapp.com", projectId: "worldcup26-896ac", storageBucket: "worldcup26-896ac.firebasestorage.app", messagingSenderId: "1070038920983", appId: "1:1070038920983:web:f107f8e2fa2a5a79725152" };
     const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
@@ -154,6 +154,51 @@
 
     let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = [];
     window.historyLimit = 5;
+
+    // Auto-Reminder Bot: Kiểm tra liên tục mỗi 60s trên background
+    setInterval(async () => {
+        if (!currentUserDoc || allOpenMatches.length === 0 || allUsersData.length === 0) return;
+        const now = Date.now();
+        for (let match of allOpenMatches) {
+            if (!match.matchTime) continue;
+            const timeDiffMinutes = (match.matchTime - now) / (60 * 1000);
+            
+            let reminderLevel = null;
+            if (timeDiffMinutes <= 135 && timeDiffMinutes > 120 && !match.reminded135) reminderLevel = 135;
+            else if (timeDiffMinutes <= 150 && timeDiffMinutes > 135 && !match.reminded150) reminderLevel = 150;
+            else if (timeDiffMinutes <= 180 && timeDiffMinutes > 150 && !match.reminded180) reminderLevel = 180;
+            else if (timeDiffMinutes <= 120 && !match.reminded120) reminderLevel = 120;
+            
+            if (reminderLevel) {
+                try {
+                    await runTransaction(db, async (transaction) => {
+                        const matchRef = doc(db, "matches", match.id);
+                        const matchDoc = await transaction.get(matchRef);
+                        if (!matchDoc.exists() || matchDoc.data()[`reminded${reminderLevel}`]) throw "Already reminded";
+                        transaction.update(matchRef, { [`reminded${reminderLevel}`]: true });
+                    });
+                    
+                    const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", match.id)));
+                    let betUserIds = []; betDocs.forEach(d => betUserIds.push(d.data().userId));
+                    
+                    let notBetNames = [];
+                    allUsersData.forEach(u => {
+                        if (u.role !== 'admin' && !betUserIds.includes(u.id)) notBetNames.push(u.displayName || (u.email ? u.email.split('@')[0] : 'Khách'));
+                    });
+                    
+                    let msg = "";
+                    const formatNames = (names) => { if(!names || names.length === 0) return ""; return names.length <= 5 ? names.join(', ') : names.slice(0, 5).join(', ') + ` và ${names.length - 5} ae khác`; };
+                    if (reminderLevel === 120) {
+                        msg = `⏰ <b>ĐĐ KHÓA ỐNG KÍNH: ${match.teamA} vs ${match.teamB}</b>! Hệ thống đã tự động đóng dự đoán vì còn 120 phút nữa là bóng lăn. Chúc anh em trên tàu may mắn! 🚀`;
+                    } else if (notBetNames.length > 0) {
+                        const timeLeft = reminderLevel - 120;
+                        msg = `⏳ <b>NHẮC NHỞ DỰ ĐOÁN: ${match.teamA} vs ${match.teamB}</b><br>Chỉ còn <b>${timeLeft} phút</b> nữa là đóng cổng (đóng trước giờ bóng lăn 120p).<br>Các đồng chí <b>${formatNames(notBetNames)}</b> nhanh chóng vào chốt đơn nhé! 🏃‍♂️💨`;
+                    }
+                    if (msg) await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: msg, timestamp: new Date() });
+                } catch (err) {}
+            }
+        }
+    }, 60000);
 
     window.resetHistoryLimit = () => { window.historyLimit = 5; window.renderFilteredData(); };
     window.loadMoreHistory = () => { window.historyLimit += 5; window.renderFilteredData(); };
@@ -213,7 +258,7 @@
         container.innerHTML = filteredMatches.length === 0 ? "<p class='text-muted'>Chưa có thử thách nào.</p>" : ""; 
         filteredMatches.forEach((match) => {
             const isExpired = now > (match.matchTime - (120 * 60 * 1000)); const hasBet = myBetMatchIds.includes(match.id);
-            const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}) : "Chưa xác định";
+            const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', timeZone: 'Asia/Ho_Chi_Minh'}) : "Chưa xác định";
             
             let actionArea = "";
             if (currentTourPoints === undefined) actionArea = `<div class="alert alert-warning py-2 mb-0">Xin cấp điểm để tham gia giải.</div>`;
@@ -271,7 +316,7 @@
                     snapshot.forEach(docSnap => {
                         const chat = docSnap.data(); 
                         if (!chat.message || String(chat.message).includes("undefined") || String(chat.userName).includes("undefined")) return;
-                        const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'}) : "Vừa xong";
+                        const timeStr = chat.timestamp ? new Date(chat.timestamp.toDate()).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit', timeZone: 'Asia/Ho_Chi_Minh'}) : "Vừa xong";
                         const safeUserName = chat.userName || "Khách";
                         
                         if (chat.userId === "SYSTEM_BOT") {
@@ -287,7 +332,7 @@
                 });
             }
 
-            onSnapshot(collection(db, "users"), (snapshot) => { allUsersData = []; snapshot.forEach(doc => allUsersData.push(doc.data())); renderFilteredData(); });
+            onSnapshot(collection(db, "users"), (snapshot) => { allUsersData = []; snapshot.forEach(doc => allUsersData.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
             onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('userTournamentSelect'); selectBox.innerHTML = '<option value="ALL">-- Chọn giải đấu --</option>'; snapshot.forEach(doc => { selectBox.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; }); });
             onSnapshot(query(collection(db, "topups"), where("userId", "==", user.uid)), (snapshot) => { const list = document.getElementById('topUpStatusList'); list.innerHTML = ""; snapshot.forEach(doc => { const t = doc.data(); let badge = t.status === "PENDING" ? `<span class="badge bg-warning text-dark">Chờ duyệt</span>` : (t.status === "APPROVED" ? `<span class="badge bg-success">+${t.awardedPoints}đ</span>` : `<span class="badge bg-danger">Từ chối</span>`); list.innerHTML += `<div class="small text-muted border-bottom py-1">${t.tournamentName}: ${badge}</div>`; }); });
             onSnapshot(query(collection(db, "bets"), where("userId", "==", user.uid)), (snapshot) => { 

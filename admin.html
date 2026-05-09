@@ -111,7 +111,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDoc, setDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDoc, setDoc, getDocs, doc, updateDoc, deleteDoc, query, where, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyDPBXK4t4ex8oBpe3x9a8m80jf5CZLrVH0", authDomain: "worldcup26-896ac.firebaseapp.com", projectId: "worldcup26-896ac", storageBucket: "worldcup26-896ac.firebasestorage.app", messagingSenderId: "1070038920983", appId: "1:1070038920983:web:f107f8e2fa2a5a79725152" };
         const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getFirestore(app);
@@ -120,6 +120,56 @@
         let allUsersData = []; let allApprovedTopups = []; 
         const sendBotChat = async (msg) => { try { await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: msg, timestamp: new Date() }); } catch(e) {} };
         const formatNames = (names) => { if(!names || names.length === 0) return ""; return names.length <= 5 ? names.join(', ') : names.slice(0, 5).join(', ') + ` và ${names.length - 5} ae khác`; };
+
+        // Auto-Reminder Bot: Kiểm tra liên tục mỗi 60s
+        setInterval(async () => {
+            if (!auth.currentUser) return;
+            const now = Date.now();
+            try {
+                const openMatchesDocs = await getDocs(query(collection(db, "matches"), where("status", "==", "OPEN")));
+                for (let docSnap of openMatchesDocs.docs) {
+                    const match = docSnap.data();
+                    if (!match.matchTime) continue;
+                    const timeDiffMinutes = (match.matchTime - now) / (60 * 1000);
+                    
+                    let reminderLevel = null;
+                    if (timeDiffMinutes <= 135 && timeDiffMinutes > 120 && !match.reminded135) reminderLevel = 135;
+                    else if (timeDiffMinutes <= 150 && timeDiffMinutes > 135 && !match.reminded150) reminderLevel = 150;
+                    else if (timeDiffMinutes <= 180 && timeDiffMinutes > 150 && !match.reminded180) reminderLevel = 180;
+                    else if (timeDiffMinutes <= 120 && !match.reminded120) reminderLevel = 120;
+                    
+                    if (reminderLevel) {
+                        try {
+                            await runTransaction(db, async (transaction) => {
+                                const matchRef = doc(db, "matches", docSnap.id);
+                                const matchDoc = await transaction.get(matchRef);
+                                if (!matchDoc.exists() || matchDoc.data()[`reminded${reminderLevel}`]) throw "Already reminded";
+                                transaction.update(matchRef, { [`reminded${reminderLevel}`]: true });
+                            });
+                            
+                            const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", docSnap.id)));
+                            let betUserIds = []; betDocs.forEach(d => betUserIds.push(d.data().userId));
+                            
+                            const userDocs = await getDocs(collection(db, "users"));
+                            let notBetNames = [];
+                            userDocs.forEach(d => {
+                                const u = d.data();
+                                if (u.role !== 'admin' && Object.keys(u).length > 0 && !betUserIds.includes(d.id)) notBetNames.push(u.displayName || (u.email ? u.email.split('@')[0] : 'Khách'));
+                            });
+                            
+                            let msg = "";
+                            if (reminderLevel === 120) {
+                                msg = `⏰ <b>ĐÃ KHÓA ỐNG KÍNH: ${match.teamA} vs ${match.teamB}</b>! Hệ thống đã tự động đóng dự đoán vì còn 120 phút nữa là bóng lăn. Chúc anh em trên tàu may mắn! 🚀`;
+                            } else if (notBetNames.length > 0) {
+                                const timeLeft = reminderLevel - 120;
+                                msg = `⏳ <b>NHẮC NHỞ DỰ ĐOÁN: ${match.teamA} vs ${match.teamB}</b><br>Chỉ còn <b>${timeLeft} phút</b> nữa là đóng cổng (đóng trước giờ bóng lăn 120p).<br>Các đồng chí <b>${formatNames(notBetNames)}</b> nhanh chóng vào chốt đơn nhé! 🏃‍♂️💨`;
+                            }
+                            if (msg) sendBotChat(msg);
+                        } catch (err) {}
+                    }
+                }
+            } catch (e) { console.error("Auto Reminder Error:", e); }
+        }, 60000);
 
         onAuthStateChanged(auth, async (user) => { if (!user) { window.location.href = 'index.html'; return; } const userSnap = await getDoc(doc(db, "users", user.uid)); if(userSnap.exists() && userSnap.data().role === "admin") document.getElementById('adminBody').style.display = 'block'; else { alert("Không có quyền!"); window.location.href = 'index.html'; } });
         
@@ -157,12 +207,12 @@
             snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; }); 
         });
 
-        window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime).getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo thử thách thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! (Lợi thế: ${hc}). Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
+        window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime + "+07:00").getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo thử thách thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! (Lợi thế: ${hc}). Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
 
         onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => {
             const list = document.getElementById('adminMatchList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small'>Chưa có dữ liệu.</p>" : ""; 
             snapshot.forEach((matchDoc) => {
-                const match = matchDoc.data(); const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN') : "Chưa xác định"; const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-2">${match.tournamentName}</span>` : ``;
+                const match = matchDoc.data(); const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : "Chưa xác định"; const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-2">${match.tournamentName}</span>` : ``;
                 const editBtn = `<button onclick="openEditMatch('${matchDoc.id}', '${match.tournamentId}', '${match.teamA}', '${match.teamB}', '${match.handicap}', ${match.matchTime})" class="btn btn-outline-secondary btn-sm me-1" style="font-size: 0.75rem;">✏ Sửa</button>`;
                 const delBtn = `<button onclick="deleteMatch('${matchDoc.id}', '${match.tournamentId}', '${match.teamA} vs ${match.teamB}')" class="btn btn-outline-danger btn-sm" style="font-size: 0.75rem;">🗑 Xóa</button>`;
                 list.innerHTML += `<div class="col-12 mb-3"><div class="border p-3 rounded bg-light">${tName}<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0 text-primary fw-bold">${match.teamA} vs ${match.teamB}</h6><div>${editBtn}${delBtn}</div></div><div class="d-flex justify-content-between align-items-center mb-2"><p class="small text-danger fw-bold mb-0">Lợi thế: ${match.handicap}</p><span class="badge bg-secondary">Bóng lăn: ${matchDateStr}</span></div><button onclick="checkPlayers('${matchDoc.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, ${match.penalized}, false)" class="btn btn-info btn-sm text-white w-100 mb-2 fw-bold">Xem Ai Tham Gia / Ai Chưa</button>
@@ -195,7 +245,7 @@
             } catch (e) { alert("Lỗi: " + e.message); } 
         };
 
-        window.openEditMatch = (matchId, tourId, teamA, teamB, handicap, matchTime) => { document.getElementById('editMatchId').value = matchId; document.getElementById('editTourId').value = tourId; document.getElementById('editTeamA').value = teamA; document.getElementById('editTeamB').value = teamB; document.getElementById('editHandicap').value = handicap; const dt = new Date(matchTime); const tzOffset = dt.getTimezoneOffset() * 60000; document.getElementById('editMatchTime').value = (new Date(dt - tzOffset)).toISOString().slice(0, 16); document.getElementById('editMatchOverlay').style.display = 'block'; document.getElementById('editMatchModal').style.display = 'block'; };
+        window.openEditMatch = (matchId, tourId, teamA, teamB, handicap, matchTime) => { document.getElementById('editMatchId').value = matchId; document.getElementById('editTourId').value = tourId; document.getElementById('editTeamA').value = teamA; document.getElementById('editTeamB').value = teamB; document.getElementById('editHandicap').value = handicap; const vnTime = new Date(matchTime + 7 * 3600 * 1000); document.getElementById('editMatchTime').value = vnTime.toISOString().slice(0, 16); document.getElementById('editMatchOverlay').style.display = 'block'; document.getElementById('editMatchModal').style.display = 'block'; };
         window.closeEditMatch = () => { document.getElementById('editMatchOverlay').style.display = 'none'; document.getElementById('editMatchModal').style.display = 'none'; };
         
         window.saveEditMatch = async () => { 
@@ -215,7 +265,7 @@
                     } 
                     await deleteDoc(doc(db, "bets", d.id)); 
                 } 
-                const timeStamp = new Date(mTime).getTime(); 
+                const timeStamp = new Date(mTime + "+07:00").getTime(); 
                 await updateDoc(doc(db, "matches", matchId), { teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp }); 
                 alert("Cập nhật thành công!"); closeEditMatch(); 
                 sendBotChat(`✏️ <b>CẬP NHẬT THÔNG TIN: ${tA} vs ${tB}</b>! BTC vừa điều chỉnh lại thông số. Các phiếu dự đoán cũ đã bị hủy và hoàn điểm. Mời mọi người load lại trang để chốt lại phương án nhé! 🔄`); 
