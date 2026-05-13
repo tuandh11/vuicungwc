@@ -226,7 +226,9 @@
         let pendingBets = statsBets.filter(b => b.status === "PENDING").length;
         let statsDiv = document.getElementById('userStatsDisplay');
         if (statsDiv) {
-            statsDiv.innerHTML = `Đã dự đoán: <span class="text-dark fw-bold">${totalBets}</span> | Thắng: <span class="text-success fw-bold">${winBets}</span> | Thua: <span class="text-danger fw-bold">${loseBets}</span> | Hoàn: <span class="text-info fw-bold">${refundBets}</span> | Chờ: <span class="text-warning fw-bold">${pendingBets}</span>`;
+            let missedCount = currentUserDoc.missedMatches || 0;
+            let missedDisplay = missedCount > 0 ? ` | Bỏ lỡ: <span class="text-danger fw-bold" title="Số lần không tham gia">${missedCount}</span>` : '';
+            statsDiv.innerHTML = `Đã dự đoán: <span class="text-dark fw-bold">${totalBets}</span> | Thắng: <span class="text-success fw-bold">${winBets}</span> | Thua: <span class="text-danger fw-bold">${loseBets}</span> | Hoàn: <span class="text-info fw-bold">${refundBets}</span> | Chờ: <span class="text-warning fw-bold">${pendingBets}</span>${missedDisplay}`;
             statsDiv.style.display = 'block';
         }
 
@@ -363,7 +365,7 @@
         if(!confirm(`Xác nhận dùng 50 điểm dự đoán cho đội ${selectedTeam}?`)) return; 
         
         try { 
-            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50 }); 
+            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50, consecutiveMisses: 0 }); 
             await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
             
             const botPhrases = [

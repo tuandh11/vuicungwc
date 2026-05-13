@@ -181,7 +181,10 @@
             let html = `<table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;"><thead class="table-light"><tr><th>Thành viên</th><th>Thao tác</th></tr></thead><tbody>`;
             snapshot.forEach(docSnap => { 
                 const u = docSnap.data(); allUsersData.push({ id: docSnap.id, ...u }); 
-                const nameDisplay = u.displayName || u.email.split('@')[0]; const isMe = u.email === auth.currentUser.email; html += `<tr><td><strong class="${isMe ? 'text-danger' : 'text-primary'}">${nameDisplay}</strong>${u.role === 'admin' ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Admin</span>' : ''}<br><small class="text-muted">${u.email}</small></td><td><button onclick="changeUserName('${docSnap.id}', '${nameDisplay}')" class="btn btn-warning btn-sm fw-bold" style="font-size: 0.75rem;">✏️ Đổi tên</button></td></tr>`; 
+                const nameDisplay = u.displayName || u.email.split('@')[0]; const isMe = u.email === auth.currentUser.email;
+                const missedCount = u.missedMatches || 0;
+                const missedDisplay = missedCount > 0 ? `<span class="badge bg-danger ms-1" title="Số lần không tham gia dự đoán">Bỏ lỡ: ${missedCount}</span>` : '';
+                html += `<tr><td><strong class="${isMe ? 'text-danger' : 'text-primary'}">${nameDisplay}</strong>${u.role === 'admin' ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Admin</span>' : ''} ${missedDisplay}<br><small class="text-muted">${u.email}</small></td><td><button onclick="changeUserName('${docSnap.id}', '${nameDisplay}')" class="btn btn-warning btn-sm fw-bold" style="font-size: 0.75rem;">✏️ Đổi tên</button></td></tr>`; 
             });
             html += `</tbody></table>`; list.innerHTML = html;
             if(typeof window.renderStats === 'function') window.renderStats(); 
@@ -200,11 +203,27 @@
         window.rejectTopUp = async (reqId) => { if(confirm("Từ chối cấp điểm?")) await updateDoc(doc(db, "topups", reqId), { status: "REJECTED" }); };
 
         window.createTournament = async () => { const tName = document.getElementById('tournamentName').value.trim(); if(!tName) return alert("Nhập tên!"); try { await addDoc(collection(db, "tournaments"), { name: tName, createdAt: new Date() }); document.getElementById('tournamentName').value = ''; alert("Tạo Giải xong!"); } catch (e) { alert(e.message); } };
-        
+
+        window.deleteTournament = async (tourId, tourName) => {
+            try {
+                const matchesQuery = query(collection(db, "matches"), where("tournamentId", "==", tourId));
+                const matchSnapshot = await getDocs(matchesQuery);
+                if (!matchSnapshot.empty) {
+                    alert(`Không thể xóa giải đấu "${tourName}" vì vẫn còn ${matchSnapshot.size} thử thách (trận đấu) tồn tại trong giải này.\n\nVui lòng xóa hết các thử thách thuộc giải đấu này trước khi xóa giải.`);
+                    return;
+                }
+                if (!confirm(`Bạn có chắc chắn muốn XÓA giải đấu "${tourName}"? Thao tác này không thể hoàn tác.`)) return;
+                await deleteDoc(doc(db, "tournaments", tourId));
+                alert(`Đã xóa thành công giải đấu "${tourName}".`);
+            } catch (e) {
+                alert("Lỗi khi xóa giải đấu: " + e.message);
+            }
+        };
+
         onSnapshot(collection(db, "tournaments"), (snapshot) => { 
             const selectBox = document.getElementById('matchTournament'); const listDiv = document.getElementById('tournamentList'); const statSelect = document.getElementById('statTournamentSelect'); 
             selectBox.innerHTML = '<option value="">-- Bắt buộc: Chọn Giải Đấu --</option>'; listDiv.innerHTML = ''; if(statSelect) statSelect.innerHTML = '<option value="ALL">-- Chọn giải đấu để xem thống kê --</option>';
-            snapshot.forEach(doc => { const t = doc.data(); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<span class="badge bg-primary">${t.name}</span>`; if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; }); 
+            snapshot.forEach(doc => { const t = doc.data(); const escapedName = t.name.replace(/'/g, "\\'"); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<div class="d-inline-flex align-items-center border rounded me-2 mb-2 bg-white shadow-sm"><span class="px-2 py-1 text-primary fw-bold small">${t.name}</span><button onclick="deleteTournament('${doc.id}', '${escapedName}')" class="btn btn-sm btn-outline-danger border-0 py-0 px-2" title="Xóa giải đấu này" style="font-size: 1.2rem; line-height: 1;">&times;</button></div>`; if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; }); 
         });
 
         window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime + "+07:00").getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo thử thách thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! (Lợi thế: ${hc}). Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
@@ -215,7 +234,7 @@
                 const match = matchDoc.data(); const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }) : "Chưa xác định"; const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-2">${match.tournamentName}</span>` : ``;
                 const editBtn = `<button onclick="openEditMatch('${matchDoc.id}', '${match.tournamentId}', '${match.teamA}', '${match.teamB}', '${match.handicap}', ${match.matchTime})" class="btn btn-outline-secondary btn-sm me-1" style="font-size: 0.75rem;">✏ Sửa</button>`;
                 const delBtn = `<button onclick="deleteMatch('${matchDoc.id}', '${match.tournamentId}', '${match.teamA} vs ${match.teamB}')" class="btn btn-outline-danger btn-sm" style="font-size: 0.75rem;">🗑 Xóa</button>`;
-                list.innerHTML += `<div class="col-12 mb-3"><div class="border p-3 rounded bg-light">${tName}<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0 text-primary fw-bold">${match.teamA} vs ${match.teamB}</h6><div>${editBtn}${delBtn}</div></div><div class="d-flex justify-content-between align-items-center mb-2"><p class="small text-danger fw-bold mb-0">Lợi thế: ${match.handicap}</p><span class="badge bg-secondary">Bóng lăn: ${matchDateStr}</span></div><button onclick="checkPlayers('${matchDoc.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, ${match.penalized}, false)" class="btn btn-info btn-sm text-white w-100 mb-2 fw-bold">Xem Ai Tham Gia / Ai Chưa</button>
+                list.innerHTML += `<div class="col-12 mb-3"><div class="border p-3 rounded bg-light">${tName}<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0 text-primary fw-bold">${match.teamA} vs ${match.teamB}</h6><div>${editBtn}${delBtn}</div></div><div class="d-flex justify-content-between align-items-center mb-2"><p class="small text-danger fw-bold mb-0">Lợi thế: ${match.handicap}</p><span class="badge bg-secondary">Bóng lăn: ${matchDateStr}</span></div><button onclick="checkPlayers('${matchDoc.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, ${match.penalized}, false, '${match.tournamentId}')" class="btn btn-info btn-sm text-white w-100 mb-2 fw-bold">Xem Ai Tham Gia / Ai Chưa</button>
                     <div class="d-flex flex-wrap gap-2">
                         <button onclick="chiaTien('${matchDoc.id}', '${match.teamA}', '${match.tournamentId}')" class="btn btn-outline-danger btn-sm flex-fill fw-bold">Công bố: ${match.teamA}</button>
                         <button onclick="chiaTien('${matchDoc.id}', 'Hòa', '${match.tournamentId}')" class="btn btn-outline-success btn-sm flex-fill fw-bold">Công bố: Hòa</button>
@@ -273,23 +292,40 @@
         };
 
         window.closePlayerList = () => document.getElementById('playerListSection').style.display = 'none';
-        window.checkPlayers = async (matchId, matchName, matchTime, isPenalized, isClosed) => { document.getElementById('playerListSection').style.display = 'block'; document.getElementById('checkMatchName').innerText = matchName + (isClosed ? " (ĐÃ CHỐT SỔ)" : " (ĐANG NHẬN DỰ ĐOÁN)"); const listHasBet = document.getElementById('listHasBet'), listNotBet = document.getElementById('listNotBet'), btnPenalize = document.getElementById('btnPenalize'); listHasBet.innerHTML = "Đang tải..."; listNotBet.innerHTML = "Đang tải..."; try { const userDocs = await getDocs(collection(db, "users")); let allUsers = []; userDocs.forEach(d => Object.keys(d.data()).length > 0 && allUsers.push({ id: d.id, email: d.data().email, displayName: d.data().displayName || d.data().email.split('@')[0] })); const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let betUserIds = []; let betDetails = {}; betDocs.forEach(d => { betUserIds.push(d.data().userId); betDetails[d.data().userId] = d.data().selectedTeam; }); listHasBet.innerHTML = ""; listNotBet.innerHTML = ""; let notBetArray = []; allUsers.forEach(u => { if(betUserIds.includes(u.id)) listHasBet.innerHTML += `<li>${u.displayName} (Chọn: <strong class="text-primary">${betDetails[u.id]}</strong>)</li>`; else { listNotBet.innerHTML += `<li>${u.displayName}</li>`; notBetArray.push(u.id); }}); document.getElementById('countBet').innerText = betUserIds.length; document.getElementById('countNotBet').innerText = notBetArray.length; const deadline = (matchTime || Date.now()) - (120 * 60 * 1000); if(!isClosed && Date.now() > deadline && !isPenalized && notBetArray.length > 0) { btnPenalize.style.display = 'block'; btnPenalize.onclick = () => xuLyPhat(matchId, notBetArray); } else btnPenalize.style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
-        window.xuLyPhat = async (matchId, notBetArray) => { if(!confirm("Xác nhận nhắc nhở?")) return; try { for(let uid of notBetArray) { const uRef = doc(db, "users", uid); const uSnap = await getDoc(uRef); if(uSnap.exists()) await updateDoc(uRef, { missedMatches: (uSnap.data().missedMatches || 0) + 1 }); } await updateDoc(doc(db, "matches", matchId), { penalized: true }); alert("Đã ghi nhận!"); document.getElementById('playerListSection').style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
+        window.checkPlayers = async (matchId, matchName, matchTime, isPenalized, isClosed, tourId) => { document.getElementById('playerListSection').style.display = 'block'; document.getElementById('checkMatchName').innerText = matchName + (isClosed ? " (ĐÃ CHỐT SỔ)" : " (ĐANG NHẬN DỰ ĐOÁN)"); const listHasBet = document.getElementById('listHasBet'), listNotBet = document.getElementById('listNotBet'), btnPenalize = document.getElementById('btnPenalize'); listHasBet.innerHTML = "Đang tải..."; listNotBet.innerHTML = "Đang tải..."; try { const userDocs = await getDocs(collection(db, "users")); let allUsers = []; userDocs.forEach(d => Object.keys(d.data()).length > 0 && allUsers.push({ id: d.id, email: d.data().email, displayName: d.data().displayName || d.data().email.split('@')[0] })); const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let betUserIds = []; let betDetails = {}; betDocs.forEach(d => { betUserIds.push(d.data().userId); betDetails[d.data().userId] = d.data().selectedTeam; }); listHasBet.innerHTML = ""; listNotBet.innerHTML = ""; let notBetArray = []; allUsers.forEach(u => { if(betUserIds.includes(u.id)) listHasBet.innerHTML += `<li>${u.displayName} (Chọn: <strong class="text-primary">${betDetails[u.id]}</strong>)</li>`; else { listNotBet.innerHTML += `<li>${u.displayName}</li>`; notBetArray.push(u.id); }}); document.getElementById('countBet').innerText = betUserIds.length; document.getElementById('countNotBet').innerText = notBetArray.length; const deadline = (matchTime || Date.now()) - (120 * 60 * 1000); if(!isClosed && Date.now() > deadline && !isPenalized && notBetArray.length > 0) { btnPenalize.style.display = 'block'; btnPenalize.onclick = () => xuLyPhat(matchId, notBetArray, tourId, matchName); } else btnPenalize.style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
+        window.xuLyPhat = async (matchId, notBetArray, tourId, matchName) => { if(!confirm("Xác nhận nhắc nhở & phạt (nếu có)?")) return; try { let penalizedUsers = []; for(let uid of notBetArray) { const uRef = doc(db, "users", uid); const uSnap = await getDoc(uRef); if(uSnap.exists()) { let uData = uSnap.data(); let newMissed = (uData.missedMatches || 0) + 1; let newConsecutive = (uData.consecutiveMisses || 0) + 1; let updateData = { missedMatches: newMissed, consecutiveMisses: newConsecutive }; let penaltyPoints = 0; if (newConsecutive >= 2 && tourId) { penaltyPoints = newConsecutive * 10; let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; updateData[`tournamentPoints.${tourId}`] = currentPts - penaltyPoints; penalizedUsers.push({ name: uData.displayName || uData.email.split('@')[0], points: penaltyPoints, count: newConsecutive }); } await updateDoc(uRef, updateData); } } await updateDoc(doc(db, "matches", matchId), { penalized: true }); alert("Đã ghi nhận nhắc nhở & xử phạt!"); document.getElementById('playerListSection').style.display = 'none'; if (penalizedUsers.length > 0) { let msgDetails = penalizedUsers.map(u => `<b>${u.name}</b> (-${u.points}đ/lỡ ${u.count} trận)`).join(", "); sendBotChat(`🚨 <b>PHẠT BỎ LỠ DỰ ĐOÁN: ${matchName}</b><br>Trọng tài vừa rút thẻ phạt các thành viên vắng mặt liên tiếp: ${msgDetails}. Anh em chú ý tham gia đầy đủ nhé! ⚠️`); } } catch (e) { alert("Lỗi: " + e.message); } };
 
-        onSnapshot(query(collection(db, "matches"), where("status", "==", "CLOSED")), (snapshot) => {
-            const list = document.getElementById('historyMatchList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small'>Chưa có lịch sử.</p>" : ""; 
-            snapshot.forEach((matchDoc) => {
-                const match = matchDoc.data();
+        window.adminHistoryLimit = 3;
+        let allClosedMatches = [];
+
+        window.renderHistoryMatches = () => {
+            const list = document.getElementById('historyMatchList'); list.innerHTML = allClosedMatches.length === 0 ? "<p class='text-muted small'>Chưa có lịch sử.</p>" : ""; 
+            allClosedMatches.sort((a, b) => (b.data.matchTime || 0) - (a.data.matchTime || 0));
+            let visibleMatches = allClosedMatches.slice(0, window.adminHistoryLimit);
+            visibleMatches.forEach((m) => {
+                const match = m.data;
                 if(match.summary) {
                     const tName = match.tournamentName ? `<span class="badge bg-info text-dark mb-1">${match.tournamentName}</span>` : ``;
-                    let summaryText = match.summary.isRefund ? `<span class="text-info fw-bold">Không có ai đoán đúng. Đã hoàn 50 điểm.</span>` : `Đoán đúng: ${match.summary.winCount} (+${match.summary.pointsPerWinner}đ) | Đoán sai: ${match.summary.loseCount} (-50đ)`;
+                    let formattedPts = Number(match.summary.pointsPerWinner).toLocaleString('vi-VN');
+                    let summaryText = match.summary.isRefund ? `<span class="text-info fw-bold">Không có ai đoán đúng. Đã hoàn 50 điểm.</span>` : `Đoán đúng: ${match.summary.winCount} (+${formattedPts}đ) | Đoán sai: ${match.summary.loseCount} (-50đ)`;
                     list.innerHTML += `<div class="border-bottom py-3">${tName}
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2"><div><strong class="text-dark fs-6">${match.teamA} vs ${match.teamB}</strong> <span class="badge bg-success ms-2">KQ: ${match.winner}</span><span class="badge bg-secondary ms-1">Tỷ số: ${match.finalScore || "N/A"}</span></div>
-                            <button onclick="revertMatch('${matchDoc.id}')" class="btn btn-sm btn-outline-danger">Hoàn tác</button></div>
+                            <button onclick="revertMatch('${m.id}')" class="btn btn-sm btn-outline-danger">Hoàn tác</button></div>
                         <div class="d-flex flex-wrap justify-content-between gap-2"><div class="text-muted small">${summaryText}</div>
-                            <button onclick="checkPlayers('${matchDoc.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, true, true)" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem">Xem chi tiết</button></div></div>`;
+                            <button onclick="checkPlayers('${m.id}', '${match.teamA} vs ${match.teamB}', ${match.matchTime || 0}, true, true, '${match.tournamentId}')" class="btn btn-outline-secondary btn-sm" style="font-size:0.75rem">Xem chi tiết</button></div></div>`;
                 }
             });
+            if (allClosedMatches.length > window.adminHistoryLimit) {
+                list.innerHTML += `<div class="text-center mt-3"><button onclick="loadMoreAdminHistory()" class="btn btn-sm btn-outline-secondary fw-bold" style="font-size:0.75rem;">Xem thêm...</button></div>`;
+            }
+        };
+
+        window.loadMoreAdminHistory = () => { window.adminHistoryLimit += 3; window.renderHistoryMatches(); };
+
+        onSnapshot(query(collection(db, "matches"), where("status", "==", "CLOSED")), (snapshot) => {
+            allClosedMatches = [];
+            snapshot.forEach((matchDoc) => { allClosedMatches.push({ id: matchDoc.id, data: matchDoc.data() }); });
+            window.renderHistoryMatches();
         });
 
         window.chiaTien = async (matchId, winningTeam, tourId) => {
@@ -370,7 +406,7 @@
 
                 if (totalTopupUser > 0 || currentBalance > 0) {
                     hasData = true; let nameDisplay = u.displayName || u.email.split('@')[0];
-                    html += `<tr><td class="text-start fw-bold text-primary">${nameDisplay}</td><td class="text-success fw-bold">+${totalTopupUser}</td><td class="text-danger fw-bold">${currentBalance}</td></tr>`;
+                    html += `<tr><td class="text-start fw-bold text-primary">${nameDisplay}</td><td class="text-success fw-bold">+${totalTopupUser.toLocaleString('vi-VN')}</td><td class="text-danger fw-bold">${currentBalance.toLocaleString('vi-VN')}</td></tr>`;
                     sumTopup += totalTopupUser; sumBalance += currentBalance;
                 }
             });
@@ -379,7 +415,7 @@
             // GIẢI THÍCH LÀM TRÒN: Tổng toàn hệ thống cũng cần cắt số lẻ
             sumBalance = parseFloat(sumBalance.toFixed(2));
 
-            html += `<tr class="table-light fw-bold" style="font-size:0.9rem;"><td class="text-start text-dark">TỔNG TOÀN HỆ THỐNG</td><td class="text-success">+${sumTopup}</td><td class="text-danger">${sumBalance}</td></tr>`;
+            html += `<tr class="table-light fw-bold" style="font-size:0.9rem;"><td class="text-start text-dark">TỔNG TOÀN HỆ THỐNG</td><td class="text-success">+${sumTopup.toLocaleString('vi-VN')}</td><td class="text-danger">${sumBalance.toLocaleString('vi-VN')}</td></tr>`;
             html += `</tbody></table>`; container.innerHTML = html;
         };
     </script>
