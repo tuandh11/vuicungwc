@@ -48,6 +48,7 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div>
                     <h5>Chào, <span id="displayName" class="text-success fw-bold">...</span></h5>
+                    <div id="userStatsDisplay" class="small text-muted mt-1" style="display: none;"></div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
                         <span>Quỹ điểm của bạn: </span>
                         <!-- Vị trí Hũ điểm hiện tại trên Header sẽ được đổ dữ liệu vào đây -->
@@ -216,6 +217,16 @@
         const container = document.getElementById('matchContainer'); const historyList = document.getElementById('myHistoryList');
         const btnTopUp = document.getElementById('btnTopUp'); const pointsDisplay = document.getElementById('pointsDisplay');
         const leaderboard = document.getElementById('leaderboardList'); const now = Date.now();
+
+        let statsBets = selectedTourId === "ALL" ? allMyBets : allMyBets.filter(b => b.tournamentId === selectedTourId);
+        let totalBets = statsBets.length;
+        let winBets = statsBets.filter(b => b.status === "WIN").length;
+        let loseBets = statsBets.filter(b => b.status === "LOSE").length;
+        let statsDiv = document.getElementById('userStatsDisplay');
+        if (statsDiv) {
+            statsDiv.innerHTML = `Đã dự đoán: <span class="text-dark fw-bold">${totalBets}</span> | Thắng: <span class="text-success fw-bold">${winBets}</span> | Thua: <span class="text-danger fw-bold">${loseBets}</span>`;
+            statsDiv.style.display = 'block';
+        }
 
         if(selectedTourId === "ALL") {
             pointsDisplay.innerHTML = `<span class="text-muted fs-6">Chọn 1 giải cụ thể</span>`; btnTopUp.style.display = 'none'; container.innerHTML = "<div class='alert alert-secondary'>Vui lòng chọn 1 Giải đấu cụ thể ở phía trên.</div>"; historyList.innerHTML = ""; leaderboard.innerHTML = ""; return;
