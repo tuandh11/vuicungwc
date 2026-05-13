@@ -222,9 +222,11 @@
         let totalBets = statsBets.length;
         let winBets = statsBets.filter(b => b.status === "WIN").length;
         let loseBets = statsBets.filter(b => b.status === "LOSE").length;
+        let refundBets = statsBets.filter(b => b.status === "REFUND").length;
+        let pendingBets = statsBets.filter(b => b.status === "PENDING").length;
         let statsDiv = document.getElementById('userStatsDisplay');
         if (statsDiv) {
-            statsDiv.innerHTML = `Đã dự đoán: <span class="text-dark fw-bold">${totalBets}</span> | Thắng: <span class="text-success fw-bold">${winBets}</span> | Thua: <span class="text-danger fw-bold">${loseBets}</span>`;
+            statsDiv.innerHTML = `Đã dự đoán: <span class="text-dark fw-bold">${totalBets}</span> | Thắng: <span class="text-success fw-bold">${winBets}</span> | Thua: <span class="text-danger fw-bold">${loseBets}</span> | Hoàn: <span class="text-info fw-bold">${refundBets}</span> | Chờ: <span class="text-warning fw-bold">${pendingBets}</span>`;
             statsDiv.style.display = 'block';
         }
 
