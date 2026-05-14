@@ -194,7 +194,7 @@
         }, 3500);
     };
 
-    let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = [];
+    let currentUserDoc = null; let allOpenMatches = []; let allMyBets = []; let allUsersData = []; let allApprovedTopups = [];
     window.historyLimit = 5;
 
     // Auto-Reminder Bot: Kiểm tra liên tục mỗi 60s trên background
@@ -332,13 +332,34 @@
         });
         container.innerHTML = containerHTML; // Gán 1 lần duy nhất
 
-        // GIẢI THÍCH LÀM TRÒN 2: Bảng Xếp hạng
-        let leaderboardHTML = ""; let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => b.tournamentPoints[selectedTourId] - a.tournamentPoints[selectedTourId]); let rank = 1; 
+        // GIẢI THÍCH LÀM TRÒN 2 & LOGIC XẾP HẠNG: Bảng Xếp hạng
+        let leaderboardHTML = ""; 
+        let userTopups = {};
+        allApprovedTopups.filter(t => t.tournamentId === selectedTourId).forEach(t => {
+            userTopups[t.userId] = (userTopups[t.userId] || 0) + (t.awardedPoints || 0);
+        });
+
+        let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => {
+            let ptsA = a.tournamentPoints[selectedTourId];
+            let ptsB = b.tournamentPoints[selectedTourId];
+            
+            // Ưu tiên 0: Tài khoản âm điểm bị đẩy xuống nhóm bét bảng
+            if ((ptsA < 0) !== (ptsB < 0)) return ptsA < 0 ? 1 : -1;
+
+            let topupA = userTopups[a.id] || 0;
+            let topupB = userTopups[b.id] || 0;
+            if (topupA !== topupB) return topupA - topupB; // Ưu tiên 1: Nạp vốn ít thì được xếp lên trên
+            return ptsB - ptsA; // Ưu tiên 2: Nếu vốn nạp bằng nhau thì xét số dư điểm tồn
+        });
+        
+        let rank = 1; 
         rankedUsers.forEach(u => { 
             // Cắt điểm trên bảng xếp hạng chỉ lấy tối đa 2 chữ số lẻ
             let pts = parseFloat(Number(u.tournamentPoints[selectedTourId]).toFixed(2)); 
+            let topupInfo = userTopups[u.id] || 0;
             let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `#${rank}`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "fw-bold text-primary" : ""; 
-            leaderboardHTML += `<div class="d-flex justify-content-between border-bottom py-2 ${myHighlight}"><span class="truncate-text">${medal} ${nameDisplay}</span><strong class="text-success">${pts}đ</strong></div>`; 
+            let ptsColor = pts < 0 ? "text-danger" : "text-success"; // Đổi màu đỏ nếu điểm âm
+            leaderboardHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><span class="truncate-text">${medal} ${nameDisplay}</span><div class="text-end"><strong class="${ptsColor}">${pts}đ</strong><br><small class="text-muted" style="font-size:0.65rem;">(Vốn: ${topupInfo}đ)</small></div></div>`; 
             rank++; 
         });
         leaderboard.innerHTML = leaderboardHTML; // Gán 1 lần duy nhất
@@ -426,6 +447,10 @@
 
             onSnapshot(collection(db, "users"), (snapshot) => { allUsersData = []; snapshot.forEach(doc => allUsersData.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
             onSnapshot(collection(db, "tournaments"), (snapshot) => { const selectBox = document.getElementById('userTournamentSelect'); selectBox.innerHTML = '<option value="ALL">-- Chọn giải đấu --</option>'; snapshot.forEach(doc => { selectBox.innerHTML += `<option value="${doc.id}">${doc.data().name}</option>`; }); });
+            onSnapshot(query(collection(db, "topups"), where("status", "==", "APPROVED")), (snapshot) => { 
+                allApprovedTopups = []; snapshot.forEach(doc => allApprovedTopups.push({ id: doc.id, ...doc.data() })); 
+                renderFilteredData(); 
+            });
             onSnapshot(query(collection(db, "topups"), where("userId", "==", user.uid)), (snapshot) => { const list = document.getElementById('topUpStatusList'); list.innerHTML = ""; snapshot.forEach(doc => { const t = doc.data(); let badge = t.status === "PENDING" ? `<span class="badge bg-warning text-dark">Chờ duyệt</span>` : (t.status === "APPROVED" ? `<span class="badge bg-success">+${t.awardedPoints}đ</span>` : `<span class="badge bg-danger">Từ chối</span>`); list.innerHTML += `<div class="small text-muted border-bottom py-1">${t.tournamentName}: ${badge}</div>`; }); });
             onSnapshot(query(collection(db, "bets"), where("userId", "==", user.uid)), (snapshot) => { 
                 allMyBets = []; snapshot.forEach(doc => allMyBets.push({ id: doc.id, ...doc.data() })); 
