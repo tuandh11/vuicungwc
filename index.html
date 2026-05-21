@@ -339,18 +339,20 @@
             userTopups[t.userId] = (userTopups[t.userId] || 0) + (t.awardedPoints || 0);
         });
 
-        let rankedUsers = allUsersData.filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined).sort((a, b) => {
-            let ptsA = a.tournamentPoints[selectedTourId];
-            let ptsB = b.tournamentPoints[selectedTourId];
-            
-            // Ưu tiên 0: Tài khoản âm điểm bị đẩy xuống nhóm bét bảng
-            if ((ptsA < 0) !== (ptsB < 0)) return ptsA < 0 ? 1 : -1;
+        let rankedUsers = allUsersData
+            .filter(u => u.tournamentPoints && u.tournamentPoints[selectedTourId] !== undefined)
+            .sort((a, b) => {
+                let ptsA = Number(a.tournamentPoints[selectedTourId] || 0);
+                let ptsB = Number(b.tournamentPoints[selectedTourId] || 0);
 
-            let topupA = userTopups[a.id] || 0;
-            let topupB = userTopups[b.id] || 0;
-            if (topupA !== topupB) return topupA - topupB; // Ưu tiên 1: Nạp vốn ít thì được xếp lên trên
-            return ptsB - ptsA; // Ưu tiên 2: Nếu vốn nạp bằng nhau thì xét số dư điểm tồn
-        });
+                let topupA = Number(userTopups[a.id] || 0);
+                let topupB = Number(userTopups[b.id] || 0);
+
+                let netA = ptsA - topupA;
+                let netB = ptsB - topupB;
+
+                return netB - netA;
+            });
         
         let rank = 1; 
         rankedUsers.forEach(u => { 
