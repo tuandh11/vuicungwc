@@ -343,18 +343,19 @@
         filteredMatches.forEach((match) => {
             const isExpired = now > (match.matchTime - (120 * 60 * 1000)); const hasBet = myBetMatchIds.includes(match.id);
             const matchDateStr = match.matchTime ? new Date(match.matchTime).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', timeZone: 'Asia/Ho_Chi_Minh'}) : "Chưa xác định";
-            
+            const betRulePoints = match.betRulePoints || 50;
+
             let actionArea = "";
             if (currentTourPoints === undefined) actionArea = `<div class="alert alert-warning py-2 mb-0">Xin cấp điểm để tham gia giải.</div>`;
             else if (hasBet) actionArea = `<div class="alert alert-success py-2 mb-0">✅ Đã gửi dự đoán.</div>`;
             else if (isExpired) actionArea = `<div class="alert alert-secondary py-2 mb-0">❌ Đã khóa bình chọn.</div>`;
-            else actionArea = `<div class="d-flex gap-2"><button class="btn btn-outline-danger btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}')">Chọn ${match.teamA}</button><button class="btn btn-outline-primary btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}')">Chọn ${match.teamB}</button></div>`;
-            
-            containerHTML += `<div class="col-12 mb-3"><div class="card bet-card"><div class="card-body">
-                <h5 class="text-center fw-bold">${match.teamA} vs ${match.teamB}</h5>
-                <p class="text-center text-muted small mb-2">⏱ Bóng lăn: <span class="fw-bold">${matchDateStr}</span> <br> Lợi thế: <span class="text-danger fw-bold">${match.handicap}</span></p>
-                ${actionArea}
-            </div></div></div>`;
+                        else actionArea = `<div>
+                <div class="text-center small text-muted mb-2">Mức cược: <b class="text-danger">${betRulePoints} điểm</b></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-danger btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamA}</button>
+                    <button class="btn btn-outline-primary btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamB}</button>
+                </div>
+            </div>`;
         });
         container.innerHTML = containerHTML; // Gán 1 lần duy nhất
 
@@ -489,24 +490,24 @@
         } else { document.getElementById('authSection').style.display = 'flex'; document.getElementById('mainSection').style.display = 'none'; document.getElementById('chatWidget').style.display = 'none'; }
     });
 
-    window.placeBet = async (matchId, selectedTeam, matchName, tournamentId) => {
+    window.placeBet = async (matchId, selectedTeam, matchName, tournamentId, betRulePoints = 50) => {
         let currentPoints = currentUserDoc.tournamentPoints ? (currentUserDoc.tournamentPoints[tournamentId] || 0) : 0;
-        if(currentPoints < 50) return alert("Hũ điểm của bạn không đủ!"); 
-        if(!confirm(`Xác nhận dùng 50 điểm dự đoán cho đội ${selectedTeam}?`)) return; 
+        if(currentPoints < betRulePoints) return alert(`Hũ điểm của bạn không đủ! Cần ${betRulePoints} điểm để dự đoán trận này.`); 
+        if(!confirm(`Xác nhận dùng ${betRulePoints} điểm dự đoán cho đội ${selectedTeam}?`)) return; 
         
         try { 
-            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - 50, consecutiveMisses: 0 }); 
-            await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: 50, status: "PENDING", timestamp: new Date() }); 
+            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - betRulePoints }); 
+            await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: betRulePoints, status: "PENDING", timestamp: new Date() }); 
             
             const botPhrases = [
-                `vừa ném 50 điểm vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương! 🌊`,
+                `vừa ném ${betRulePoints} điểmvào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương! 🌊`,
                 `đã chốt phương án <b>${selectedTeam}</b>. Bát phở sáng mai đã có người lo rồi! 🍜`,
-                `gửi gắm 50 điểm hy vọng vào <b>${selectedTeam}</b>. Anh em gọi sẵn xe cứu thương chưa? 🚑`,
+                `gửi gắm ${betRulePoints} điểm hy vọng vào <b>${selectedTeam}</b>. Anh em gọi sẵn xe cứu thương chưa? 🚑`,
                 `quyết định điền tên <b>${selectedTeam}</b> vào phiếu dự đoán. Hệ tâm linh không đùa được đâu! 🙏`,
                 `vừa mạnh dạn chốt <b>${selectedTeam}</b>. Theo tớ thì ăn, chống tớ thì ra đảo nhé! 🏝️`,
-                `nhồi 50 điểm sương sương cho <b>${selectedTeam}</b>. Trận này không win thì... xin xóa app! 🤣`,
+                `nhồi ${betRulePoints} điểm sương sương cho <b>${selectedTeam}</b>. Trận này không win thì... xin xóa app! 🤣`,
                 `tin tưởng tuyệt đối vào <b>${selectedTeam}</b>. Quả này không thắng thì chỉ có thể do... trọng tài! 🏃‍♂️💨`,
-                `vừa liệng 50 điểm vào <b>${selectedTeam}</b>. Ngã ở đâu, mình gấp đôi ở đấy anh em ạ! 📉`,
+                `vừa liệng ${betRulePoints} điểm vào <b>${selectedTeam}</b>. Ngã ở đâu, mình gấp đôi ở đấy anh em ạ! 📉`,
                 `đã trao trọn niềm tin cho <b>${selectedTeam}</b>. Mọi người mau đánh ngược lại để gánh tạ nào! 🤡`,
                 `vừa chốt đơn <b>${selectedTeam}</b> trận <b>${matchName}</b>. Chuyến đò này liệu có cập bến an toàn hay chìm nghỉm đây? 🚢`
             ];
@@ -515,7 +516,7 @@
             
             await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: `📢 Tin nóng: <b>${playerName}</b> ${randomMsg}`, timestamp: new Date() });
             alert("Gửi dự đoán thành công!"); 
-            if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: 50 }), headers: { 'Content-Type': 'application/json' } }); 
+            if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: betRulePoints }), headers: { 'Content-Type': 'application/json' } }); 
         } catch (e) { alert("Lỗi hệ thống!"); } 
     };
     

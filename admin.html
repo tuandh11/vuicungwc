@@ -57,8 +57,16 @@
                 <div class="col-md-12"><select id="matchTournament" class="form-select border-primary"><option value="">-- Bắt buộc: Chọn Giải Đấu --</option></select></div>
                 <div class="col-md-3"><input type="text" id="teamA" class="form-control" placeholder="Đội A"></div>
                 <div class="col-md-3"><input type="text" id="teamB" class="form-control" placeholder="Đội B"></div>
-                <div class="col-md-3"><input type="text" id="handicap" class="form-control" placeholder="Điểm lợi thế"></div>
-                <div class="col-md-3"><input type="datetime-local" id="matchTime" class="form-control"></div>
+                <div class="col-md-2"><input type="text" id="handicap" class="form-control" placeholder="Điểm lợi thế"></div>
+                <div class="col-md-2">
+                    <select id="betRulePoints" class="form-select">
+                        <option value="50">50 điểm</option>
+                        <option value="100">100 điểm</option>
+                        <option value="150">150 điểm</option>
+                        <option value="200">200 điểm</option>
+                    </select>
+                </div>
+                <div class="col-md-2"><input type="datetime-local" id="matchTime" class="form-control"></div>
                 <div class="col-12 mt-2"><button onclick="createMatch()" class="btn btn-primary w-100 fw-bold">Đưa lên hệ thống</button></div>
             </div>
         </div>
@@ -226,7 +234,47 @@
             snapshot.forEach(doc => { const t = doc.data(); const escapedName = t.name.replace(/'/g, "\\'"); selectBox.innerHTML += `<option value="${doc.id}">${t.name}</option>`; listDiv.innerHTML += `<div class="d-inline-flex align-items-center border rounded me-2 mb-2 bg-white shadow-sm"><span class="px-2 py-1 text-primary fw-bold small">${t.name}</span><button onclick="deleteTournament('${doc.id}', '${escapedName}')" class="btn btn-sm btn-outline-danger border-0 py-0 px-2" title="Xóa giải đấu này" style="font-size: 1.2rem; line-height: 1;">&times;</button></div>`; if(statSelect) statSelect.innerHTML += `<option value="${doc.id}">${t.name}</option>`; }); 
         });
 
-        window.createMatch = async () => { const tourId = document.getElementById('matchTournament').value, tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text, tA = document.getElementById('teamA').value, tB = document.getElementById('teamB').value, hc = document.getElementById('handicap').value, mTime = document.getElementById('matchTime').value; if(!tourId) return alert("Chọn Giải!"); if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!"); try { const timeStamp = new Date(mTime + "+07:00").getTime(); await addDoc(collection(db, "matches"), { tournamentId: tourId, tournamentName: tourName, teamA: tA, teamB: tB, handicap: hc, matchTime: timeStamp, status: "OPEN", penalized: false, createdAt: new Date() }); alert("Tạo thử thách thành công!"); document.getElementById('teamA').value=''; document.getElementById('teamB').value=''; document.getElementById('handicap').value=''; document.getElementById('matchTime').value=''; sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! (Lợi thế: ${hc}). Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`); } catch (e) { alert(e.message); } };
+        window.createMatch = async () => {
+            const tourId = document.getElementById('matchTournament').value;
+            const tourName = document.getElementById('matchTournament').options[document.getElementById('matchTournament').selectedIndex].text;
+            const tA = document.getElementById('teamA').value;
+            const tB = document.getElementById('teamB').value;
+            const hc = document.getElementById('handicap').value;
+            const betRulePoints = parseInt(document.getElementById('betRulePoints').value);
+            const mTime = document.getElementById('matchTime').value;
+
+            if(!tourId) return alert("Chọn Giải!");
+            if(!tA || !tB || !mTime) return alert("Nhập đủ thông tin!");
+
+            try {
+                const timeStamp = new Date(mTime + "+07:00").getTime();
+
+                await addDoc(collection(db, "matches"), {
+                    tournamentId: tourId,
+                    tournamentName: tourName,
+                    teamA: tA,
+                    teamB: tB,
+                    handicap: hc,
+                    betRulePoints: betRulePoints,
+                    matchTime: timeStamp,
+                    status: "OPEN",
+                    penalized: false,
+                    createdAt: new Date()
+                });
+
+                alert("Tạo thử thách thành công!");
+
+                document.getElementById('teamA').value = '';
+                document.getElementById('teamB').value = '';
+                document.getElementById('handicap').value = '';
+                document.getElementById('betRulePoints').value = '50';
+                document.getElementById('matchTime').value = '';
+
+                sendBotChat(`⚔️ <b>THỬ THÁCH MỚI: ${tA} vs ${tB}</b> đã được mở! Cược vào trận này: <b>${betRulePoints} điểm</b>. Mời mọi người vào phân tích và gửi dự đoán! 🏃‍♂️💨`);
+            } catch (e) {
+                alert(e.message);
+            }
+        };
 
         onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => {
             const list = document.getElementById('adminMatchList'); list.innerHTML = snapshot.empty ? "<p class='text-muted small'>Chưa có dữ liệu.</p>" : ""; 
@@ -245,7 +293,7 @@
         });
 
         window.deleteMatch = async (matchId, tourId, matchName) => { 
-            if(!confirm("XÓA THỬ THÁCH sẽ HOÀN LẠI 50 điểm cho toàn bộ những người đã dự đoán. Chắc chắn xóa?")) return; 
+            if(!confirm("XÓA THỬ THÁCH sẽ HOÀN LẠI điểm cho toàn bộ những người đã dự đoán. Chắc chắn xóa?")) return; 
             try { 
                 const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); 
                 for (let d of betDocs.docs) { 
@@ -254,7 +302,7 @@
                         const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if (uSnap.exists()) { 
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.points || 50) }); 
                         } 
                     } 
                     await deleteDoc(doc(db, "bets", d.id)); 
@@ -341,16 +389,17 @@
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()) {
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.points || 50) }); 
                         }
-                        await updateDoc(betRef, { status: "REFUND", earnedInfo: `+50đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai đoán đúng. Hoàn điểm.`, tournamentId: tourId }); 
+                        await updateDoc(betRef, { status: "REFUND", earnedInfo: `+${betData.points || 50}đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai đoán đúng. Hoàn điểm.`, tournamentId: tourId }); 
                     }
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} thành viên.`);
                     if(dsThua.length > 0) sendBotChat(`🏁 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Rất tiếc! Đội <b>${winningTeam}</b> không có ai lựa chọn. Hệ thống đã tự động hoàn lại 50 điểm vốn cho <b>${formatNames(tenThua)}</b>. Chúc các bạn may mắn lần sau! 🎯`);
                 } else {
                     const soThua = dsThua.length; 
                     // GIẢI THÍCH LÀM TRÒN: Dùng parseFloat và toFixed(2) để đảm bảo số điểm thưởng luôn được cắt đúng 2 chữ số thập phân, không bị dài vô tận.
-                    const diemNhan = parseFloat((50 + (soThua * 50 / dsThang.length)).toFixed(2)); 
+                    const betPoint = dsThang[0]?.data().points || dsThua[0]?.data().points || 50;
+                    const diemNhan = parseFloat((betPoint + (soThua * betPoint / dsThang.length)).toFixed(2)); 
                     for (let d of dsThang) { 
                         const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if(uSnap.exists()){
@@ -360,7 +409,7 @@
                         await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
                     }
                     for (let d of dsThua) { 
-                        const betRef = doc(db, "bets", d.id); await updateDoc(betRef, { status: "LOSE", earnedInfo: `-50đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
+                        const betRef = doc(db, "bets", d.id); await updateDoc(betRef, { status: "LOSE", earnedInfo: `-${betData.points || 50}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
                     }
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: dsThang.length, loseCount: soThua, pointsPerWinner: diemNhan, isRefund: false } }); alert("Đã công bố và chia điểm thành công!");
                     if(tenThang.length > 0) sendBotChat(`🎉 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Chúc mừng các chiến thần <b>${formatNames(tenThang)}</b> đã phân tích chuẩn xác đội <b>${winningTeam}</b> và ẵm trọn <b>+${diemNhan}đ</b>/người! Quá đỉnh kouttt! 🏆🚀`);
