@@ -609,7 +609,7 @@
 
             await runTransaction(db, async (transaction) => {
                 const senderRef = doc(db, "users", senderId);
-                const receiverRef = doc(db, "users", receiverId);
+                const receiverRef = doc(db, "users", recipientId);
 
                 const senderDoc = await transaction.get(senderRef);
                 const receiverDoc = await transaction.get(receiverRef);
