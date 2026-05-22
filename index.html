@@ -71,7 +71,8 @@
                         <span>Quỹ điểm của bạn: </span>
                         <!-- Vị trí Hũ điểm hiện tại trên Header sẽ được đổ dữ liệu vào đây -->
                         <span id="pointsDisplay" class="fs-4 text-primary fw-bold">0</span>
-                        <button onclick="openTopUpModal(false)" id="btnTopUp" class="btn btn-sm btn-success fw-bold" style="display:none;">💰 Xin cấp điểm</button>
+                        <button onclick="openTopUpModal(false)" id="btnTopUp" class="btn btn-sm btn-success fw-bold ms-2" style="display:none;">💰 Xin cấp điểm</button>
+                        <button onclick="openGiftPointsModal()" id="btnGiftPoints" class="btn btn-sm btn-info text-white fw-bold ms-2" style="display:none;">🎁 Tặng điểm</button>
                     </div>
                 </div>
                 <div class="d-flex flex-wrap justify-content-start justify-content-md-end gap-2">
@@ -107,6 +108,28 @@
             </div>
             <div id="topUpStatusList" class="mt-3"></div>
         </div>
+
+        <!-- NEW MODAL FOR GIFTING POINTS -->
+        <div id="giftPointsSection" class="card bet-card p-4 mb-4 border-primary fade-in" style="display: none; background-color: #eef7ff;">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+                <h5 class="text-primary fw-bold">🎁 Tặng điểm cho bạn bè</h5>
+                <button onclick="closeGiftPointsModal()" class="btn-close"></button>
+            </div>
+            <div class="mt-3">
+                <label class="form-label small fw-bold">Chọn Giải Đấu:</label>
+                <select id="giftTournamentSelect" class="form-select form-select-sm mb-3" disabled></select>
+
+                <label class="form-label small fw-bold">Chọn người nhận:</label>
+                <select id="recipientSelect" class="form-select form-select-sm mb-3"></select>
+
+                <label class="form-label small fw-bold">Số điểm muốn tặng:</label>
+                <input type="number" id="giftAmount" class="form-control form-control-sm mb-3" placeholder="Tối thiểu 10 điểm">
+
+                <button onclick="submitGiftPoints()" id="btnSubmitGift" class="btn btn-primary w-100 fw-bold">Gửi Tặng Ngay</button>
+            </div>
+        </div>
+
+        <!-- END NEW MODAL FOR GIFTING POINTS -->
 
         <div class="card bet-card p-3 mb-4 border-primary" style="background-color: #eef7ff;">
             <label class="fw-bold text-primary mb-2">🌍 Chọn Giải Đấu để tham gia:</label>
@@ -259,6 +282,7 @@
         const container = document.getElementById('matchContainer'); const historyList = document.getElementById('myHistoryList');
         const btnTopUp = document.getElementById('btnTopUp'); const pointsDisplay = document.getElementById('pointsDisplay');
         const leaderboard = document.getElementById('leaderboardList'); const now = Date.now();
+        const btnGiftPoints = document.getElementById('btnGiftPoints');
 
         let statsBets = selectedTourId === "ALL" ? allMyBets : allMyBets.filter(b => b.tournamentId === selectedTourId);
         let totalBets = statsBets.length;
@@ -266,7 +290,9 @@
         let loseBets = statsBets.filter(b => b.status === "LOSE").length;
         let refundBets = statsBets.filter(b => b.status === "REFUND").length;
         let pendingBets = statsBets.filter(b => b.status === "PENDING").length;
+        
         let statsDiv = document.getElementById('userStatsDisplay');
+        
         if (statsDiv) {
             let missedCount = currentUserDoc.missedMatches || 0;
             let missedDisplay = missedCount > 0 ? ` | Bỏ lỡ: <span class="text-danger fw-bold" title="Số lần không tham gia">${missedCount}</span>` : '';
@@ -275,17 +301,17 @@
         }
 
         if(selectedTourId === "ALL") {
-            pointsDisplay.innerHTML = `<span class="text-muted fs-6">Chọn 1 giải cụ thể</span>`; btnTopUp.style.display = 'none'; container.innerHTML = "<div class='alert alert-secondary'>Vui lòng chọn 1 Giải đấu cụ thể ở phía trên.</div>"; historyList.innerHTML = ""; leaderboard.innerHTML = ""; return;
+            pointsDisplay.innerHTML = `<span class="text-muted fs-6">Chọn 1 giải cụ thể</span>`; btnTopUp.style.display = 'none'; btnGiftPoints.style.display = 'none'; container.innerHTML = "<div class='alert alert-secondary'>Vui lòng chọn 1 Giải đấu cụ thể ở phía trên.</div>"; historyList.innerHTML = ""; leaderboard.innerHTML = ""; return;
         }
 
         let currentTourPoints = currentUserDoc.tournamentPoints ? currentUserDoc.tournamentPoints[selectedTourId] : undefined;
         if (currentTourPoints === undefined) { 
-            pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Xin cấp điểm tham gia</button>`; btnTopUp.style.display = 'none'; 
+            pointsDisplay.innerHTML = `<button onclick="openTopUpModal(true)" class="btn btn-sm btn-primary fw-bold">Xin cấp điểm tham gia</button>`; btnTopUp.style.display = 'none'; btnGiftPoints.style.display = 'none';
         } 
         else { 
             // GIẢI THÍCH LÀM TRÒN 1: Ép Hũ điểm cá nhân trên Header chỉ hiện tối đa 2 chữ số thập phân
             const formattedCurrentPts = parseFloat(Number(currentTourPoints).toFixed(2));
-            pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${formattedCurrentPts}</strong> đ`; btnTopUp.style.display = 'inline-block'; 
+            pointsDisplay.innerHTML = `<strong class="text-primary fs-4">${formattedCurrentPts}</strong> đ`; btnTopUp.style.display = 'inline-block'; btnGiftPoints.style.display = 'inline-block';
         }
 
         let filteredBets = allMyBets.filter(b => b.tournamentId === selectedTourId);
@@ -494,6 +520,143 @@
     };
     
     window.logout = () => signOut(auth);
+
+    window.openGiftPointsModal = () => {
+        const selTour = document.getElementById('userTournamentSelect');
+        if (selTour.value === "ALL") {
+            return alert("Vui lòng chọn 1 Giải đấu cụ thể trước khi tặng điểm!");
+        }
+
+        const giftTournamentSelect = document.getElementById('giftTournamentSelect');
+        giftTournamentSelect.innerHTML = ''; // Clear previous options
+        // Populate with the currently selected tournament
+        const selectedOption = selTour.options[selTour.selectedIndex];
+        const option = document.createElement('option');
+        option.value = selectedOption.value;
+        option.textContent = selectedOption.textContent;
+        giftTournamentSelect.appendChild(option);
+        // giftTournamentSelect.disabled = true; // User can only gift within the selected tournament
+        
+        const recipientSelect = document.getElementById('recipientSelect');
+        recipientSelect.innerHTML = '<option value="">-- Chọn người nhận --</option>'; // Clear and add default
+        
+        // Populate recipient dropdown, excluding the current user
+        allUsersData.forEach(user => {
+            if (user.id !== currentUserDoc.uid) {
+                const userOption = document.createElement('option');
+                userOption.value = user.id;
+                userOption.textContent = user.displayName || user.email.split('@')[0];
+                recipientSelect.appendChild(userOption);
+            }
+        });
+
+        document.getElementById('giftAmount').value = '';
+        document.getElementById('giftPointsSection').style.display = 'block';
+
+        // Ensure the recipientSelect is visible and not disabled if it was previously
+        recipientSelect.disabled = false;
+    };
+
+    window.closeGiftPointsModal = () => {
+        document.getElementById('giftPointsSection').style.display = 'none';
+    };
+
+    window.submitGiftPoints = async () => {
+        if (!currentUserDoc) {
+            alert("Đang đồng bộ dữ liệu người dùng, vui lòng thử lại sau giây lát.");
+            return;
+        }
+
+        const senderId = currentUserDoc.uid;
+        const senderEmail = currentUserDoc.email;
+        const selectedTourId = document.getElementById('giftTournamentSelect').value; // This is already disabled and correctly set
+        const recipientId = document.getElementById('recipientSelect').value; // Get selected user ID
+        const giftAmount = parseInt(document.getElementById('giftAmount').value);
+        const btn = document.getElementById('btnSubmitGift');
+
+        if (!selectedTourId || selectedTourId === "ALL") {
+            return alert("Vui lòng chọn một giải đấu hợp lệ.");
+        } // This check is now for recipientId
+        if (!recipientId) {
+            return alert("Vui lòng chọn người nhận.");
+        }
+        if (isNaN(giftAmount) || giftAmount <= 0) {
+            return alert("Số điểm tặng phải là một số dương.");
+        }
+        if (giftAmount < 10) {
+            return alert("Số điểm tặng tối thiểu là 10 điểm.");
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Đang gửi tặng...";
+
+        try {
+            // Find receiver user by ID from allUsersData
+            let receiverUser = allUsersData.find(u => u.id === recipientId);
+
+            if (!receiverUser) {
+                // This should ideally not happen if the dropdown is populated correctly
+                throw new Error("Không tìm thấy người nhận được chọn.");
+            }
+
+            if (receiverUser.id === senderId) {
+                throw new Error("Bạn không thể tự tặng điểm cho chính mình!");
+            }
+
+            // receiverId is already recipientId
+            const receiverDisplayName = receiverUser.displayName || receiverUser.email.split('@')[0];
+            const senderDisplayName = currentUserDoc.displayName || currentUserDoc.email.split('@')[0];
+
+            await runTransaction(db, async (transaction) => {
+                const senderRef = doc(db, "users", senderId);
+                const receiverRef = doc(db, "users", receiverId);
+
+                const senderDoc = await transaction.get(senderRef);
+                const receiverDoc = await transaction.get(receiverRef);
+
+                if (!senderDoc.exists() || !receiverDoc.exists()) {
+                    throw new Error("Người gửi hoặc người nhận không tồn tại!");
+                }
+
+                const senderData = senderDoc.data();
+                const receiverData = receiverDoc.data();
+
+                const senderCurrentPoints = senderData.tournamentPoints ? (senderData.tournamentPoints[selectedTourId] || 0) : 0;
+                const receiverCurrentPoints = receiverData.tournamentPoints ? (receiverData.tournamentPoints[selectedTourId] || 0) : 0;
+
+                if (senderCurrentPoints < giftAmount) {
+                    throw new Error("Bạn không đủ điểm trong giải đấu này để thực hiện giao dịch!");
+                }
+
+                const newSenderPoints = senderCurrentPoints - giftAmount;
+                transaction.update(senderRef, {
+                    [`tournamentPoints.${selectedTourId}`]: newSenderPoints
+                });
+
+                const newReceiverPoints = receiverCurrentPoints + giftAmount;
+                transaction.update(receiverRef, {
+                    [`tournamentPoints.${selectedTourId}`]: newReceiverPoints
+                });
+            });
+
+            alert(`Thành công! Bạn đã tặng ${giftAmount} điểm cho ${receiverDisplayName} trong giải đấu này.`);
+            closeGiftPointsModal();
+
+            await addDoc(collection(db, "chats"), {
+                userId: "SYSTEM_BOT",
+                userName: "🤖 Thống Kê Viên",
+                message: `🎉 <b>${senderDisplayName}</b> vừa hào phóng tặng <b>${giftAmount} điểm</b> cho <b>${receiverDisplayName}</b>! Tình anh em keo sơn quá! 🤝`,
+                timestamp: new Date()
+            });
+
+        } catch (e) {
+            alert("Lỗi khi tặng điểm: " + e.message);
+            console.error("Error gifting points:", e);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Gửi Tặng Ngay";
+        }
+    };
 </script>
 </body>
 </html>
