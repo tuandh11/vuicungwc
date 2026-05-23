@@ -356,6 +356,23 @@
                     <button class="btn btn-outline-primary btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamB}</button>
                 </div>
             </div>`;
+            
+            containerHTML += `
+            <div class="col-12 mb-3">
+                <div class="card bet-card">
+                    <div class="card-body">
+                        <h5 class="text-center fw-bold">${match.teamA} vs ${match.teamB}</h5>
+
+                        <p class="text-center text-muted small mb-2">
+                            ⏱ Bóng lăn: <span class="fw-bold">${matchDateStr}</span><br>
+                            Lợi thế: <span class="text-danger fw-bold">${match.handicap || "0"}</span><br>
+                            Mức dự đoán: <span class="text-primary fw-bold">${betRulePoints} điểm</span>
+                        </p>
+
+                        ${actionArea}
+                    </div>
+                </div>
+            </div>`;
         });
         container.innerHTML = containerHTML; // Gán 1 lần duy nhất
 
