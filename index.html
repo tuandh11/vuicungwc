@@ -349,7 +349,7 @@
             if (currentTourPoints === undefined) actionArea = `<div class="alert alert-warning py-2 mb-0">Xin cấp điểm để tham gia giải.</div>`;
             else if (hasBet) actionArea = `<div class="alert alert-success py-2 mb-0">✅ Đã gửi dự đoán.</div>`;
             else if (isExpired) actionArea = `<div class="alert alert-secondary py-2 mb-0">❌ Đã khóa bình chọn.</div>`;
-                        else actionArea = `<div>
+            else actionArea = `<div>
                 <div class="text-center small text-muted mb-2">Mức cược: <b class="text-danger">${betRulePoints} điểm</b></div>
                 <div class="d-flex gap-2">
                     <button class="btn btn-outline-danger btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamA}</button>
