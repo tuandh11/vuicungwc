@@ -189,7 +189,8 @@
             let html = `<table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.85rem;"><thead class="table-light"><tr><th>Thành viên</th><th>Thao tác</th></tr></thead><tbody>`;
             snapshot.forEach(docSnap => { 
                 const u = docSnap.data(); allUsersData.push({ id: docSnap.id, ...u }); 
-                const nameDisplay = u.displayName || u.email.split('@')[0]; const isMe = u.email === auth.currentUser.email;
+                const nameDisplay = u.displayName || (u.email ? u.email.split('@')[0] : 'Không rõ');
+                const isMe = auth.currentUser && u.email === auth.currentUser.email;
                 const missedCount = u.missedMatches || 0;
                 const missedDisplay = missedCount > 0 ? `<span class="badge bg-danger ms-1" title="Số lần không tham gia dự đoán">Bỏ lỡ: ${missedCount}</span>` : '';
                 html += `<tr><td><strong class="${isMe ? 'text-danger' : 'text-primary'}">${nameDisplay}</strong>${u.role === 'admin' ? '<span class="badge bg-warning text-dark ms-1" style="font-size:0.6rem">Admin</span>' : ''} ${missedDisplay}<br><small class="text-muted">${u.email}</small></td><td><button onclick="changeUserName('${docSnap.id}', '${nameDisplay}')" class="btn btn-warning btn-sm fw-bold" style="font-size: 0.75rem;">✏️ Đổi tên</button></td></tr>`; 
@@ -327,7 +328,7 @@
                         const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
                         if (uSnap.exists()) { 
                             let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + 50 }); 
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.points || 50) }); 
                         } 
                     } 
                     await deleteDoc(doc(db, "bets", d.id)); 
@@ -409,7 +410,16 @@
                         await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
                     }
                     for (let d of dsThua) { 
-                        const betRef = doc(db, "bets", d.id); await updateDoc(betRef, { status: "LOSE", earnedInfo: `-${betData.points || 50}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
+                        const betRef = doc(db, "bets", d.id);
+                        const betData = d.data();
+
+                        await updateDoc(betRef, {
+                            status: "LOSE",
+                            earnedInfo: `-${betData.points || 50}đ`,
+                            matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`,
+                            tournamentId: tourId
+                        }); 
+                    
                     }
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: dsThang.length, loseCount: soThua, pointsPerWinner: diemNhan, isRefund: false } }); alert("Đã công bố và chia điểm thành công!");
                     if(tenThang.length > 0) sendBotChat(`🎉 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Chúc mừng các chiến thần <b>${formatNames(tenThang)}</b> đã phân tích chuẩn xác đội <b>${winningTeam}</b> và ẵm trọn <b>+${diemNhan}đ</b>/người! Quá đỉnh kouttt! 🏆🚀`);
