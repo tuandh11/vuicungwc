@@ -342,7 +342,53 @@
 
         window.closePlayerList = () => document.getElementById('playerListSection').style.display = 'none';
         window.checkPlayers = async (matchId, matchName, matchTime, isPenalized, isClosed, tourId) => { document.getElementById('playerListSection').style.display = 'block'; document.getElementById('checkMatchName').innerText = matchName + (isClosed ? " (ĐÃ CHỐT SỔ)" : " (ĐANG NHẬN DỰ ĐOÁN)"); const listHasBet = document.getElementById('listHasBet'), listNotBet = document.getElementById('listNotBet'), btnPenalize = document.getElementById('btnPenalize'); listHasBet.innerHTML = "Đang tải..."; listNotBet.innerHTML = "Đang tải..."; try { const userDocs = await getDocs(collection(db, "users")); let allUsers = []; userDocs.forEach(d => Object.keys(d.data()).length > 0 && allUsers.push({ id: d.id, email: d.data().email, displayName: d.data().displayName || d.data().email.split('@')[0] })); const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let betUserIds = []; let betDetails = {}; betDocs.forEach(d => { betUserIds.push(d.data().userId); betDetails[d.data().userId] = d.data().selectedTeam; }); listHasBet.innerHTML = ""; listNotBet.innerHTML = ""; let notBetArray = []; allUsers.forEach(u => { if(betUserIds.includes(u.id)) listHasBet.innerHTML += `<li>${u.displayName} (Chọn: <strong class="text-primary">${betDetails[u.id]}</strong>)</li>`; else { listNotBet.innerHTML += `<li>${u.displayName}</li>`; notBetArray.push(u.id); }}); document.getElementById('countBet').innerText = betUserIds.length; document.getElementById('countNotBet').innerText = notBetArray.length; const deadline = (matchTime || Date.now()) - (120 * 60 * 1000); if(!isClosed && Date.now() > deadline && !isPenalized && notBetArray.length > 0) { btnPenalize.style.display = 'block'; btnPenalize.onclick = () => xuLyPhat(matchId, notBetArray, tourId, matchName); } else btnPenalize.style.display = 'none'; } catch (e) { alert("Lỗi: " + e.message); } };
-        window.xuLyPhat = async (matchId, notBetArray, tourId, matchName) => { if(!confirm("Xác nhận nhắc nhở & phạt (nếu có)?")) return; try { let penalizedUsers = []; for(let uid of notBetArray) { const uRef = doc(db, "users", uid); const uSnap = await getDoc(uRef); if(uSnap.exists()) { let uData = uSnap.data(); let newMissed = (uData.missedMatches || 0) + 1; let newConsecutive = (uData.consecutiveMisses || 0) + 1; let updateData = { missedMatches: newMissed, consecutiveMisses: newConsecutive }; let penaltyPoints = 0; if (newConsecutive >= 2 && tourId) { penaltyPoints = newConsecutive * 10; let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; updateData[`tournamentPoints.${tourId}`] = currentPts - penaltyPoints; penalizedUsers.push({ name: uData.displayName || uData.email.split('@')[0], points: penaltyPoints, count: newConsecutive }); } await updateDoc(uRef, updateData); } } await updateDoc(doc(db, "matches", matchId), { penalized: true }); alert("Đã ghi nhận nhắc nhở & xử phạt!"); document.getElementById('playerListSection').style.display = 'none'; if (penalizedUsers.length > 0) { let msgDetails = penalizedUsers.map(u => `<b>${u.name}</b> (-${u.points}đ/lỡ ${u.count} trận)`).join(", "); sendBotChat(`🚨 <b>PHẠT BỎ LỠ DỰ ĐOÁN: ${matchName}</b><br>Trọng tài vừa rút thẻ phạt các thành viên vắng mặt liên tiếp: ${msgDetails}. Anh em chú ý tham gia đầy đủ nhé! ⚠️`); } } catch (e) { alert("Lỗi: " + e.message); } };
+        window.xuLyPhat = async (matchId, notBetArray, tourId, matchName) => {
+            if(!confirm("Xác nhận nhắc nhở & phạt (nếu có)?")) return;
+            try {
+                let penalizedUsers = [];
+                for(let uid of notBetArray) {
+                    const uRef = doc(db, "users", uid);
+                    const uSnap = await getDoc(uRef);
+                    if(uSnap.exists()) {
+                        let uData = uSnap.data();
+                        let newMissed = (uData.missedMatches || 0) + 1;
+
+                        // missedMatches chỉ là thống kê tổng số lần bỏ lỡ.
+                        // Phạt chỉ tính theo chuỗi bỏ lỡ liên tiếp của từng giải.
+                        let currentConsecutive = 0;
+                        if (typeof uData.consecutiveMisses === 'number') {
+                            currentConsecutive = uData.consecutiveMisses;
+                        } else if (uData.consecutiveMisses && typeof uData.consecutiveMisses === 'object') {
+                            currentConsecutive = uData.consecutiveMisses[tourId] || 0;
+                        }
+
+                        let newConsecutive = currentConsecutive + 1;
+                        let updateData = {
+                            missedMatches: newMissed,
+                            [`consecutiveMisses.${tourId}`]: newConsecutive
+                        };
+
+                        let penaltyPoints = 0;
+                        if (newConsecutive >= 2 && tourId) {
+                            penaltyPoints = newConsecutive * 10;
+                            let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
+                            updateData[`tournamentPoints.${tourId}`] = currentPts - penaltyPoints;
+                            penalizedUsers.push({ name: uData.displayName || uData.email.split('@')[0], points: penaltyPoints, count: newConsecutive });
+                        }
+                        await updateDoc(uRef, updateData);
+                    }
+                }
+                await updateDoc(doc(db, "matches", matchId), { penalized: true });
+                alert("Đã ghi nhận nhắc nhở & xử phạt!");
+                document.getElementById('playerListSection').style.display = 'none';
+                if (penalizedUsers.length > 0) {
+                    let msgDetails = penalizedUsers.map(u => `<b>${u.name}</b> (-${u.points}đ/lỡ ${u.count} trận)`).join(", ");
+                    sendBotChat(`🚨 <b>PHẠT BỎ LỠ DỰ ĐOÁN: ${matchName}</b><br>Trọng tài vừa rút thẻ phạt các thành viên vắng mặt liên tiếp: ${msgDetails}. Anh em chú ý tham gia đầy đủ nhé! ⚠️`);
+                }
+            } catch (e) {
+                alert("Lỗi: " + e.message);
+            }
+        };
 
         window.adminHistoryLimit = 3;
         let allClosedMatches = [];

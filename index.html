@@ -554,7 +554,7 @@
         if(!confirm(`Xác nhận dùng ${betRulePoints} điểm dự đoán cho đội ${selectedTeam}?`)) return; 
         
         try { 
-            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - betRulePoints }); 
+            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - betRulePoints, [`consecutiveMisses.${tournamentId}`]: 0 });
             await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: betRulePoints, status: "PENDING", timestamp: new Date() }); 
             
             const botPhrases = [
