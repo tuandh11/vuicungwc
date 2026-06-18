@@ -553,7 +553,12 @@
             }, (error) => {
                 console.warn("Không đọc được toàn bộ bets để hiển thị cộng đồng:", error);
             });
-            onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => { allOpenMatches = []; snapshot.forEach(doc => allOpenMatches.push({ id: doc.id, ...doc.data() })); renderFilteredData(); });
+            onSnapshot(query(collection(db, "matches"), where("status", "==", "OPEN")), (snapshot) => {
+                allOpenMatches = [];
+                snapshot.forEach(doc => allOpenMatches.push({ id: doc.id, ...doc.data() }));
+                allOpenMatches.sort((a, b) => (a.matchTime || 0) - (b.matchTime || 0));
+                renderFilteredData();
+            });
         
         } else { document.getElementById('authSection').style.display = 'flex'; document.getElementById('mainSection').style.display = 'none'; document.getElementById('chatWidget').style.display = 'none'; }
     });
