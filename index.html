@@ -17,6 +17,9 @@
         .emoji-bar::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
         .emoji-btn { cursor: pointer; font-size: 1.3rem; margin-right: 10px; transition: transform 0.1s; display: inline-block; }
         .emoji-btn:active { transform: scale(1.3); }
+        .rank-icon { width: 30px; height: 30px; object-fit: contain; margin-right: 6px; vertical-align: middle; }
+        .rank-title { font-size: 0.72rem; font-weight: 700; display: block; line-height: 1.05; }
+
         
         /* ĐỀ XUẤT TỐI ƯU UI CHUẨN XÁC */
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
@@ -437,9 +440,16 @@
             // Cắt điểm trên bảng xếp hạng chỉ lấy tối đa 2 chữ số lẻ
             let pts = parseFloat(Number(u.tournamentPoints[selectedTourId]).toFixed(2)); 
             let topupInfo = userTopups[u.id] || 0;
-            let medal = rank === 1 ? "🥇" : (rank === 2 ? "🥈" : (rank === 3 ? "🥉" : `#${rank}`)); let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "fw-bold text-primary" : ""; 
+            let medal = rank === 1
+                ? `<img class="rank-icon" src="images/fish-gold.png" alt="Cá Tra"><span class="rank-title text-warning">Cá Tra</span>`
+                : rank === 2
+                ? `<img class="rank-icon" src="images/fish-silver.png" alt="Cá Trê"><span class="rank-title text-secondary">Cá Trê</span>`
+                : rank === 3
+                ? `<img class="rank-icon" src="images/fish-bronze.png" alt="Cá Lóc"><span class="rank-title" style="color:#b56a1f;">Cá Lóc</span>`
+                : `<span class="fw-bold text-muted me-2">#${rank}</span>`;
+            let nameDisplay = u.displayName || u.email.split('@')[0]; let myHighlight = u.email === currentUserDoc.email ? "fw-bold text-primary" : ""; 
             let ptsColor = pts < 0 ? "text-danger" : "text-success"; // Đổi màu đỏ nếu điểm âm
-            leaderboardHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><span class="truncate-text">${medal} ${nameDisplay}</span><div class="text-end"><strong class="${ptsColor}">${pts}đ</strong><br><small class="text-muted" style="font-size:0.65rem;">(Vốn: ${topupInfo}đ)</small></div></div>`; 
+            leaderboardHTML += `<div class="d-flex justify-content-between align-items-center border-bottom py-2 ${myHighlight}"><span class="d-flex align-items-center" style="min-width:0;"><span class="d-inline-flex align-items-center me-1">${medal}</span><span class="truncate-text">${nameDisplay}</span></span><div class="text-end"><strong class="${ptsColor}">${pts}đ</strong><br><small class="text-muted" style="font-size:0.65rem;">(Vốn: ${topupInfo}đ)</small></div></div>`; 
             rank++; 
         });
         leaderboard.innerHTML = leaderboardHTML; // Gán 1 lần duy nhất
