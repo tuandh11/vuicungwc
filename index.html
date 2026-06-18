@@ -400,8 +400,8 @@
             else if (hasBet) actionArea = `<div class="alert alert-success py-2 mb-0">✅ Đã gửi dự đoán.</div>`;
             else if (isExpired) actionArea = `<div class="alert alert-secondary py-2 mb-0">❌ Đã khóa bình chọn.</div>`;
             else actionArea = `<div class="d-flex gap-2">
-                <button class="btn btn-outline-danger btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamA}</button>
-                <button class="btn btn-outline-primary btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints})">Chọn ${match.teamB}</button>
+                <button class="btn btn-outline-danger btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamA}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints}, this)">Chọn ${match.teamA}</button>
+                <button class="btn btn-outline-primary btn-sm w-50 fw-bold" onclick="placeBet('${match.id}', '${match.teamB}', '${match.teamA} vs ${match.teamB}', '${match.tournamentId}', ${betRulePoints}, this)">Chọn ${match.teamB}</button>
             </div>`;
 
             containerHTML += `<div class="col-12 mb-3"><div class="card bet-card"><div class="card-body">
@@ -441,7 +441,7 @@
             let pts = parseFloat(Number(u.tournamentPoints[selectedTourId]).toFixed(2)); 
             let topupInfo = userTopups[u.id] || 0;
             let medal = rank === 1
-                ? `<img class="rank-icon" src="images/fish-gold.png" alt="Cá Tra"><span class="rank-title text-warning">Cá Tra</span>`
+                ? `<img class="rank-icon" src="images/fish-gold.png" alt="Cá Tra"><span class="rank-title" style="color:#996515;">Cá Tra</span>`
                 : rank === 2
                 ? `<img class="rank-icon" src="images/fish-silver.png" alt="Cá Trê"><span class="rank-title text-secondary">Cá Trê</span>`
                 : rank === 3
@@ -563,17 +563,64 @@
         } else { document.getElementById('authSection').style.display = 'flex'; document.getElementById('mainSection').style.display = 'none'; document.getElementById('chatWidget').style.display = 'none'; }
     });
 
-    window.placeBet = async (matchId, selectedTeam, matchName, tournamentId, betRulePoints = 50) => {
-        let currentPoints = currentUserDoc.tournamentPoints ? (currentUserDoc.tournamentPoints[tournamentId] || 0) : 0;
-        if(currentPoints < betRulePoints) return alert(`Hũ điểm của bạn không đủ! Cần ${betRulePoints} điểm để dự đoán trận này.`); 
-        if(!confirm(`Xác nhận dùng ${betRulePoints} điểm dự đoán cho đội ${selectedTeam}?`)) return; 
-        
-        try { 
-            await updateDoc(doc(db, "users", currentUserDoc.uid), { [`tournamentPoints.${tournamentId}`]: currentPoints - betRulePoints, [`consecutiveMisses.${tournamentId}`]: 0 });
-            await addDoc(collection(db, "bets"), { userId: currentUserDoc.uid, userEmail: currentUserDoc.email, matchId: matchId, matchName: matchName, tournamentId: tournamentId, selectedTeam: selectedTeam, points: betRulePoints, status: "PENDING", timestamp: new Date() }); 
-            
+    window.placeBet = async (matchId, selectedTeam, matchName, tournamentId, betRulePoints = 50, btn = null) => {
+        if (btn) {
+            btn.disabled = true;
+            btn.dataset.originalText = btn.innerText;
+            btn.innerText = "Đang gửi...";
+        }
+
+        if(!confirm(`Xác nhận dùng ${betRulePoints} điểm dự đoán cho đội ${selectedTeam}?`)) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = btn.dataset.originalText || `Chọn ${selectedTeam}`;
+            }
+            return;
+        }
+
+        const userRef = doc(db, "users", currentUserDoc.uid);
+        const betRef = doc(db, "bets", `${currentUserDoc.uid}_${matchId}`);
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const userSnap = await transaction.get(userRef);
+                const betSnap = await transaction.get(betRef);
+
+                if (betSnap.exists()) {
+                    throw new Error("Bạn đã dự đoán trận này rồi!");
+                }
+
+                if (!userSnap.exists()) {
+                    throw new Error("Không tìm thấy dữ liệu người dùng!");
+                }
+
+                const userData = userSnap.data();
+                const currentPoints = userData.tournamentPoints ? (userData.tournamentPoints[tournamentId] || 0) : 0;
+
+                if (currentPoints < betRulePoints) {
+                    throw new Error(`Hũ điểm của bạn không đủ! Cần ${betRulePoints} điểm để dự đoán trận này.`);
+                }
+
+                transaction.update(userRef, {
+                    [`tournamentPoints.${tournamentId}`]: currentPoints - betRulePoints,
+                    [`consecutiveMisses.${tournamentId}`]: 0
+                });
+
+                transaction.set(betRef, {
+                    userId: currentUserDoc.uid,
+                    userEmail: currentUserDoc.email,
+                    matchId: matchId,
+                    matchName: matchName,
+                    tournamentId: tournamentId,
+                    selectedTeam: selectedTeam,
+                    points: betRulePoints,
+                    status: "PENDING",
+                    timestamp: new Date()
+                });
+            });
+
             const botPhrases = [
-                `vừa ném ${betRulePoints} điểmvào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương! 🌊`,
+                `vừa ném ${betRulePoints} điểm vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương! 🌊`,
                 `đã chốt phương án <b>${selectedTeam}</b>. Bát phở sáng mai đã có người lo rồi! 🍜`,
                 `gửi gắm ${betRulePoints} điểm hy vọng vào <b>${selectedTeam}</b>. Anh em gọi sẵn xe cứu thương chưa? 🚑`,
                 `quyết định điền tên <b>${selectedTeam}</b> vào phiếu dự đoán. Hệ tâm linh không đùa được đâu! 🙏`,
@@ -586,11 +633,36 @@
             ];
             const randomMsg = botPhrases[Math.floor(Math.random() * botPhrases.length)];
             const playerName = currentUserDoc.displayName || currentUserDoc.email.split('@')[0];
-            
-            await addDoc(collection(db, "chats"), { userId: "SYSTEM_BOT", userName: "🤖 Thống Kê Viên", message: `📢 Tin nóng: <b>${playerName}</b> ${randomMsg}`, timestamp: new Date() });
-            alert("Gửi dự đoán thành công!"); 
-            if(GOOGLE_SHEET_URL.startsWith("http")) fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ userName: currentUserDoc.email, matchName: matchName, betSide: selectedTeam, points: betRulePoints }), headers: { 'Content-Type': 'application/json' } }); 
-        } catch (e) { alert("Lỗi hệ thống!"); } 
+
+            await addDoc(collection(db, "chats"), {
+                userId: "SYSTEM_BOT",
+                userName: "🤖 Thống Kê Viên",
+                message: `📢 Tin nóng: <b>${playerName}</b> ${randomMsg}`,
+                timestamp: new Date()
+            });
+
+            alert("Gửi dự đoán thành công!");
+
+            if(GOOGLE_SHEET_URL.startsWith("http")) {
+                fetch(GOOGLE_SHEET_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: JSON.stringify({
+                        userName: currentUserDoc.email,
+                        matchName: matchName,
+                        betSide: selectedTeam,
+                        points: betRulePoints
+                    }),
+                    headers: { 'Content-Type': 'application/json' }
+                });
+            }
+        } catch (e) {
+            alert(e.message || "Lỗi hệ thống!");
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = btn.dataset.originalText || `Chọn ${selectedTeam}`;
+            }
+        }
     };
     
     window.logout = () => signOut(auth);
