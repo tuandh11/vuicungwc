@@ -425,37 +425,83 @@
 
         window.chiaTien = async (matchId, winningTeam, tourId) => {
             let score = prompt(`CÔNG BỐ ĐỘI CHIẾN THẮNG: ${winningTeam}\n\nVui lòng nhập tỷ số chung cuộc (Ví dụ: 2-1):`); if(score === null) return; score = score.trim() || "Chưa rõ";
+
+            const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+            const winMessages = [
+                (match, score, winners, team, pts) => `🎉 <b>TỔNG KẾT KẾT QUẢ: ${match} (Tỷ số ${score})</b><br>Chúc mừng <b>${formatNames(winners)}</b> đã đọc trận như đọc đáp án! Đội <b>${team}</b> mang về <b>+${pts}đ</b>/người. Quá uy tín hiểu hôn! 🏆`,
+                (match, score, winners, team, pts) => `🥳 <b>${team}</b> lên tiếng rồi! <b>${formatNames(winners)}</b> cười từ đầu trận tới cuối trận, bỏ túi <b>+${pts}đ</b>/người. Người có kiến thức nó khác, hiểu hôn! 😎`,
+                (match, score, winners, team, pts) => `🚀 Trận <b>${match}</b> khép lại với tỷ số <b>${score}</b>. Xin tuyên dương <b>${formatNames(winners)}</b> vì chiếc mũi đánh hơi quá bén. Tiền tự tìm đến, hiểu hôn! 💰`,
+                (match, score, winners, team, pts) => `🏅 Xin trao huy chương Nhà tiên tri WC cho <b>${formatNames(winners)}</b>. Chọn <b>${team}</b> chuẩn không cần chỉnh và nhận <b>+${pts}đ</b>. Đẳng cấp khác biệt hiểu hôn! 😁`,
+                (match, score, winners, team, pts) => `🔥 Có người thắng vì kiến thức, có người thắng vì tâm linh... nhưng kết quả là <b>${formatNames(winners)}</b> đều có <b>+${pts}đ</b>. Vậy là đủ rồi hiểu hôn! 🤣`,
+                (match, score, winners, team, pts) => `🎯 Ai bảo dự đoán là may rủi? <b>${formatNames(winners)}</b> vừa chứng minh điều ngược lại với <b>${team}</b>. Ăn điểm ngọt xớt, hiểu hôn! 😆`,
+                (match, score, winners, team, pts) => `👑 Hôm nay spotlight thuộc về <b>${formatNames(winners)}</b>. Chốt <b>${team}</b> phát nào trúng phát đó. Đúng người đúng thời điểm hiểu hôn! 🌟`,
+                (match, score, winners, team, pts) => `🧠 Bộ phận phân tích xin được ngả mũ trước <b>${formatNames(winners)}</b>. Tỷ số <b>${score}</b>, đội <b>${team}</b> thắng, điểm <b>+${pts}đ</b> về ví. Nét căng hiểu hôn!`,
+                (match, score, winners, team, pts) => `💎 Không nói nhiều: <b>${formatNames(winners)}</b> vừa biến 1 cú chốt thành <b>+${pts}đ</b>/người. Bản lĩnh là đây chứ đâu, hiểu hôn!`,
+                (match, score, winners, team, pts) => `📈 Đường điểm của <b>${formatNames(winners)}</b> đang xanh mướt như chứng khoán gặp tin tốt. Chọn <b>${team}</b> quá chuẩn, hiểu hôn!`,
+                (match, score, winners, team, pts) => `⚽ Trận <b>${match}</b> đã có đáp án. <b>${formatNames(winners)}</b> không đoán, họ tiên tri! Nhận <b>+${pts}đ</b> ngon lành hiểu hôn!`,
+                (match, score, winners, team, pts) => `🏆 Chúc mừng <b>${formatNames(winners)}</b>. Kèo này đi đúng lane, về đích có quà <b>+${pts}đ</b>/người. Đừng gáy quá lớn, nhưng gáy nhẹ thì được, hiểu hôn!`,
+                (match, score, winners, team, pts) => `😎 <b>${formatNames(winners)}</b> hôm nay không cần nói nhiều, bảng điểm nói thay tất cả: <b>+${pts}đ</b>. Chọn <b>${team}</b> quá thơm hiểu hôn!`,
+                (match, score, winners, team, pts) => `🥇 Một pha vào lệnh mượt như sách giáo khoa của <b>${formatNames(winners)}</b>. <b>${team}</b> thắng, điểm cộng liền tay. Chuẩn bài hiểu hôn!`,
+                (match, score, winners, team, pts) => `🚀 <b>${formatNames(winners)}</b> vừa phóng tên lửa điểm số với <b>+${pts}đ</b>/người. Trận này không phải may, là có nghiên cứu, hiểu hôn!`
+            ];
+
+            const loseMessages = [
+                (losers) => `🚑 Ở diễn biến khác, <b>${formatNames(losers)}</b> vừa đóng góp điểm vào quỹ niềm vui của người thắng. Tinh thần cống hiến rất đáng ghi nhận, hiểu hôn? 🤣`,
+                (losers) => `😂 Xin chia buồn với <b>${formatNames(losers)}</b>. Hôm nay niềm tin đặt hơi nhầm chỗ một xíu thôi... trận sau gỡ lại, hiểu hôn!`,
+                (losers) => `📉 <b>${formatNames(losers)}</b> vừa trải nghiệm cảm giác đầu tư không đúng thời điểm. Không sao, còn giải còn gỡ, hiểu hôn! 😅`,
+                (losers) => `🙈 Thôi thì <b>${formatNames(losers)}</b> coi như donate nhẹ cho anh em thắng cuộc. Sống là phải biết cho đi, hiểu hôn! 🤭`,
+                (losers) => `🤡 Bóng đá mà, đúng sai chỉ cách nhau tiếng còi mãn cuộc. <b>${formatNames(losers)}</b> đừng buồn nha, hiểu hôn!`,
+                (losers) => `🥲 Hôm nay thần may mắn xin phép nghỉ phép nên <b>${formatNames(losers)}</b> hơi thiếu duyên một chút. Trận sau comeback mạnh mẽ nha, hiểu hôn!`,
+                (losers) => `💸 Điểm thì không mất, chỉ là chuyển sang ví người khác thôi. <b>${formatNames(losers)}</b> bình tĩnh nha, hiểu hôn! 😎`,
+                (losers) => `😆 Có người gọi đây là phân tích chiến thuật, hệ thống gọi là đoán sai. Nhưng không sao, vui là chính hiểu hôn!`,
+                (losers) => `🫣 <b>${formatNames(losers)}</b> vừa bị bóng đá dạy cho một bài học nhẹ nhàng. Lần sau đọc kèo kỹ hơn chút nha, hiểu hôn!`,
+                (losers) => `🧂 Một chút muối xát nhẹ cho <b>${formatNames(losers)}</b>: chọn rất tự tin, chỉ tiếc là kết quả không tự tin theo. Hiểu hôn!`,
+                (losers) => `🌊 <b>${formatNames(losers)}</b> lên thuyền hơi sai bến. May là còn nhiều trận để bơi về, hiểu hôn!`,
+                (losers) => `🧘 <b>${formatNames(losers)}</b> hít sâu thở đều nha. Dự đoán sai không đáng sợ, sai liên tục mới đáng suy nghĩ, hiểu hôn!`,
+                (losers) => `🥶 Kèo này lạnh quá, <b>${formatNames(losers)}</b> trượt nhẹ một nhịp. Về nghiên cứu lại giáo án rồi phục thù, hiểu hôn!`,
+                (losers) => `🎭 Bóng đá không phụ người có niềm tin, nhưng hôm nay hơi phụ <b>${formatNames(losers)}</b>. Cố lên nha, hiểu hôn!`,
+                (losers) => `🪑 Mời <b>${formatNames(losers)}</b> ngồi xuống uống miếng nước. Thua trận này thôi, chưa thua cuộc chơi, hiểu hôn!`
+            ];
+
+            const refundMessages = [
+                (match, score, losers, team) => `🏁 <b>TỔNG KẾT KẾT QUẢ: ${match} (Tỷ số ${score})</b><br>Không ai chọn đội <b>${team}</b>, nên hệ thống hoàn điểm cho <b>${formatNames(losers)}</b>. Cả làng né đúng đáp án luôn, hiểu hôn! 🎯`,
+                (match, score, losers, team) => `🤯 <b>${match}</b> kết thúc với tỷ số <b>${score}</b>. Đội <b>${team}</b> thắng nhưng không ai tin. Hệ thống hoàn vốn, coi như một buổi học chiến thuật miễn phí, hiểu hôn!`,
+                (match, score, losers, team) => `🧾 Kết quả đã có: <b>${team}</b> thắng. Nhưng vì không ai chọn đúng nên <b>${formatNames(losers)}</b> được hoàn điểm. Server đồng lòng sai hướng, hiểu hôn! 😅`,
+                (match, score, losers, team) => `🔄 <b>TỔNG KẾT: ${match}</b><br>Không có nhà tiên tri nào xuất hiện hôm nay. Hệ thống hoàn điểm cho <b>${formatNames(losers)}</b>. May quá còn được cứu, hiểu hôn!`
+            ];
+
             try {
                 const userDocs = await getDocs(collection(db, "users")); let userDict = {}; userDocs.forEach(d => { userDict[d.id] = d.data().displayName || d.data().email.split('@')[0]; });
                 const betDocs = await getDocs(query(collection(db, "bets"), where("matchId", "==", matchId))); let dsThang = [], dsThua = []; let tenThang = [], tenThua = []; let matchNameStr = "";
                 betDocs.forEach(d => { let bData = d.data(); matchNameStr = bData.matchName; let uName = userDict[bData.userId] || bData.userEmail.split('@')[0]; if(bData.selectedTeam === winningTeam) { dsThang.push(d); tenThang.push(uName); } else { dsThua.push(d); tenThua.push(uName); } });
-                
+
                 const isRefund = dsThang.length === 0;
                 if (isRefund) {
-                    for (let d of dsThua) { 
-                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                    for (let d of dsThua) {
+                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef);
+                        const refundPoint = betData.points || 50;
                         if(uSnap.exists()) {
-                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + (betData.points || 50) }); 
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + refundPoint });
                         }
-                        await updateDoc(betRef, { status: "REFUND", earnedInfo: `+${betData.points || 50}đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai đoán đúng. Hoàn điểm.`, tournamentId: tourId }); 
+                        await updateDoc(betRef, { status: "REFUND", earnedInfo: `+${refundPoint}đ (Hoàn)`, matchSummary: `Tỷ số: ${score} | Không có ai đoán đúng. Hoàn điểm.`, tournamentId: tourId });
                     }
-                    await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả 50đ cho ${dsThua.length} thành viên.`);
-                    if(dsThua.length > 0) sendBotChat(`🏁 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Rất tiếc! Đội <b>${winningTeam}</b> không có ai lựa chọn. Hệ thống đã tự động hoàn lại 50 điểm vốn cho <b>${formatNames(tenThua)}</b>. Chúc các bạn may mắn lần sau! 🎯`);
+                    await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: 0, loseCount: dsThua.length, pointsPerWinner: 0, isRefund: true } }); alert(`Đã hoàn trả điểm cho ${dsThua.length} thành viên.`);
+                    if(dsThua.length > 0) sendBotChat(pickRandom(refundMessages)(matchNameStr, score, tenThua, winningTeam));
                 } else {
-                    const soThua = dsThua.length; 
-                    // GIẢI THÍCH LÀM TRÒN: Dùng parseFloat và toFixed(2) để đảm bảo số điểm thưởng luôn được cắt đúng 2 chữ số thập phân, không bị dài vô tận.
+                    const soThua = dsThua.length;
                     const betPoint = dsThang[0]?.data().points || dsThua[0]?.data().points || 50;
-                    const diemNhan = parseFloat((betPoint + (soThua * betPoint / dsThang.length)).toFixed(2)); 
-                    for (let d of dsThang) { 
-                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef); 
+                    const diemNhan = parseFloat((betPoint + (soThua * betPoint / dsThang.length)).toFixed(2));
+                    for (let d of dsThang) {
+                        const betRef = doc(db, "bets", d.id), betData = d.data(); const uRef = doc(db, "users", betData.userId); const uSnap = await getDoc(uRef);
                         if(uSnap.exists()){
-                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0; 
-                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + diemNhan }); 
+                            let uData = uSnap.data(); let currentPts = uData.tournamentPoints ? (uData.tournamentPoints[tourId] || 0) : 0;
+                            await updateDoc(uRef, { [`tournamentPoints.${tourId}`]: currentPts + diemNhan });
                         }
-                        await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId }); 
+                        await updateDoc(betRef, { status: "WIN", earnedInfo: `+${diemNhan}đ`, matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`, tournamentId: tourId });
                     }
-                    for (let d of dsThua) { 
+                    for (let d of dsThua) {
                         const betRef = doc(db, "bets", d.id);
                         const betData = d.data();
 
@@ -464,12 +510,11 @@
                             earnedInfo: `-${betData.points || 50}đ`,
                             matchSummary: `Tỷ số: ${score} | Đoán đúng: ${dsThang.length} | Đoán sai: ${soThua}`,
                             tournamentId: tourId
-                        }); 
-                    
+                        });
                     }
                     await updateDoc(doc(db, "matches", matchId), { status: "CLOSED", winner: winningTeam, finalScore: score, summary: { winCount: dsThang.length, loseCount: soThua, pointsPerWinner: diemNhan, isRefund: false } }); alert("Đã công bố và chia điểm thành công!");
-                    if(tenThang.length > 0) sendBotChat(`🎉 <b>TỔNG KẾT KẾT QUẢ: ${matchNameStr} (Tỷ số ${score})</b><br>Chúc mừng các chiến thần <b>${formatNames(tenThang)}</b> đã phân tích chuẩn xác đội <b>${winningTeam}</b> và ẵm trọn <b>+${diemNhan}đ</b>/người! Quá đỉnh kouttt! 🏆🚀`);
-                    if(tenThua.length > 0) setTimeout(() => sendBotChat(`🚑 Ở diễn biến khác, chia buồn cùng <b>${formatNames(tenThua)}</b> đã thiếu chút may mắn. Cố gắng gỡ gạc ở trận sau nhé! 🤣`), 1000);
+                    if(tenThang.length > 0) sendBotChat(pickRandom(winMessages)(matchNameStr, score, tenThang, winningTeam, diemNhan));
+                    if(tenThua.length > 0) setTimeout(() => sendBotChat(pickRandom(loseMessages)(tenThua)), 1000);
                 }
             } catch (error) { alert("Lỗi: " + error.message); }
         };
