@@ -407,6 +407,10 @@
             containerHTML += `<div class="col-12 mb-3"><div class="card bet-card"><div class="card-body">
                 <h5 class="text-center fw-bold">${match.teamA} vs ${match.teamB}</h5>
                 <p class="text-center text-muted small mb-2">⏱ Bóng lăn: <span class="fw-bold">${matchDateStr}</span><br>Lợi thế: <span class="text-danger fw-bold">${match.handicap || 'Không'}</span><br>Mức dự đoán: <span class="text-danger fw-bold">${betRulePoints} điểm</span></p>
+                <div class="small text-danger fw-bold mt-2 mb-2">
+                    🚨 Chỉ tính kết quả sau <b>2 hiệp chính thức (90 phút + bù giờ)</b>.<br>
+                    Không tính <b>hiệp phụ</b> và <b>luân lưu</b>.
+                </div>
                 ${communityBox}
                 <div class="mt-3">${actionArea}</div>
             </div></div></div>`;
