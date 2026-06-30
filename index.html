@@ -624,16 +624,21 @@
             });
 
             const botPhrases = [
-                `vừa ném ${betRulePoints} điểm vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương! 🌊`,
-                `đã chốt phương án <b>${selectedTeam}</b>. Bát phở sáng mai đã có người lo rồi! 🍜`,
-                `gửi gắm ${betRulePoints} điểm hy vọng vào <b>${selectedTeam}</b>. Anh em gọi sẵn xe cứu thương chưa? 🚑`,
-                `quyết định điền tên <b>${selectedTeam}</b> vào phiếu dự đoán. Hệ tâm linh không đùa được đâu! 🙏`,
-                `vừa mạnh dạn chốt <b>${selectedTeam}</b>. Theo tớ thì ăn, chống tớ thì ra đảo nhé! 🏝️`,
-                `nhồi ${betRulePoints} điểm sương sương cho <b>${selectedTeam}</b>. Trận này không win thì... xin xóa app! 🤣`,
-                `tin tưởng tuyệt đối vào <b>${selectedTeam}</b>. Quả này không thắng thì chỉ có thể do... trọng tài! 🏃‍♂️💨`,
-                `vừa liệng ${betRulePoints} điểm vào <b>${selectedTeam}</b>. Ngã ở đâu, mình gấp đôi ở đấy anh em ạ! 📉`,
-                `đã trao trọn niềm tin cho <b>${selectedTeam}</b>. Mọi người mau đánh ngược lại để gánh tạ nào! 🤡`,
-                `vừa chốt đơn <b>${selectedTeam}</b> trận <b>${matchName}</b>. Chuyến đò này liệu có cập bến an toàn hay chìm nghỉm đây? 🚢`
+                `vừa ném ${betRulePoints} điểm vào cửa <b>${selectedTeam}</b> trận <b>${matchName}</b>. Một là lên hương, hai là ra tương, hiểu hôn! 🌊`,
+                `đã chốt phương án <b>${selectedTeam}</b>. Bát phở sáng mai đã có người lo rồi, hiểu hôn! 🍜`,
+                `gửi gắm ${betRulePoints} điểm hy vọng vào <b>${selectedTeam}</b>. Anh em gọi sẵn xe cứu thương chưa, hiểu hôn! 🚑`,
+                `quyết định điền tên <b>${selectedTeam}</b> vào phiếu dự đoán. Hệ tâm linh không đùa được đâu, hiểu hôn! 🙏`,
+                `vừa mạnh dạn chốt <b>${selectedTeam}</b>. Theo tớ thì ăn, chống tớ thì ra đảo, hiểu hôn! 🏝️`,
+                `nhồi ${betRulePoints} điểm sương sương cho <b>${selectedTeam}</b>. Trận này không win thì xin xóa app, hiểu hôn! 🤣`,
+                `tin tưởng tuyệt đối vào <b>${selectedTeam}</b>. Quả này không thắng thì chỉ có thể do trọng tài, hiểu hôn! 🏃‍♂️💨`,
+                `vừa liệng ${betRulePoints} điểm vào <b>${selectedTeam}</b>. Ngã ở đâu, mình gấp đôi ở đó, hiểu hôn! 📉`,
+                `đã trao trọn niềm tin cho <b>${selectedTeam}</b>. Mọi người mau đánh ngược lại để gánh tạ, hiểu hôn! 🤡`,
+                `vừa chốt đơn <b>${selectedTeam}</b> trận <b>${matchName}</b>. Chuyến đò này cập bến hay chìm nghỉm thì chờ hồi sau rõ, hiểu hôn! 🚢`,
+                `đã all-in cảm xúc vào <b>${selectedTeam}</b>. Lý trí đứng ngoài nhìn mà không dám cản, hiểu hôn! 😎`,
+                `vừa đặt ${betRulePoints} điểm niềm tin vào <b>${selectedTeam}</b>. Tim nói chọn, tay bấm theo, hiểu hôn! ❤️`,
+                `chọn <b>${selectedTeam}</b> rất dứt khoát. Đúng thì gọi là chuyên gia, sai thì gọi là trải nghiệm, hiểu hôn! 😆`,
+                `vừa lên tàu <b>${selectedTeam}</b>. Tàu chạy hay tàu lật thì cũng đã mua vé rồi, hiểu hôn! 🚂`,
+                `đã chọn <b>${selectedTeam}</b> bằng tất cả sự tự tin hiện có. Còn kết quả thì để vũ trụ xử lý, hiểu hôn! 🌌`
             ];
             const randomMsg = botPhrases[Math.floor(Math.random() * botPhrases.length)];
             const playerName = currentUserDoc.displayName || currentUserDoc.email.split('@')[0];
